@@ -2,3 +2,14 @@
 fastp --in1 "$r1" --out1 "$OUT_DIR/${sample}_R1_trimmed2.fastq" \
 --in2 "$r2" --out2 "$OUT_DIR/${sample}_R2_trimmed2.fastq" --trim_poly_g \
 --qualified_quality_phred 15 --adapter_fasta "NexteraPE-PE.fa"
+
+# STAR Alignment
+# STAR --runThreadN 16 \
+# --genomeDir "$STAR_IDX" \
+# --readFilesIn "$r1" "$r2" \
+# --outSAMtype BAM SortedByCoordinate \
+# --outFileNamePrefix "${ALIGN_BAM_OUTDIR}/${sample}."
+
+# featureCounts
+featureCounts -p --countReadPairs -t exon -g gene_id -T 8 \
+-a "danRer11.ensGene.gtf" ${bam_files}
