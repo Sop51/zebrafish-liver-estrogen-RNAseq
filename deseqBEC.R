@@ -86,7 +86,7 @@ sig_bec <- resLFC_df[
 
 # VST counts & PCA plot
 vst <- assay(vst(dds_bec))
-write.csv(vst, file = "/Users/sm2949/Desktop/vstCountsBEC.csv", row.names = TRUE)
+write.csv(vst, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv", row.names = TRUE)
 p <- pca(vst, metadata = colData(dds_bec), removeVar = 0.1)
 biplot(p)
 
