@@ -1,11 +1,10 @@
 # import required libraries
 library(DESeq2)
-library(org.Dr.eg.db)
-library(clusterProfiler)
-library(AnnotationDbi)
 library(ggplot2)
 library(ggrepel)
 library(pheatmap)
+library(PCAtools)
+library(dplyr)
 
 # ------------ read in the counts and separate to HEP ------------- #
 raw_counts <- read.csv('cleanedEstrogenCounts.csv', row.names = 1)
@@ -23,7 +22,7 @@ hep_counts <- raw_counts[, hep_cols]
 # get the metadata information from the col names
 colnames_hep <- colnames(hep_counts)
 
-# split by '.' and extract condition and replicate
+# split by . and extract condition and replicate
 coldata_hep <- data.frame(
   condition = sapply(strsplit(colnames_hep, "\\."), `[`, 1),
   replicate = sapply(strsplit(colnames_hep, "\\."), `[`, 3)
@@ -59,15 +58,21 @@ dds_hep <- DESeq(dds_hep)
 # shrinkage
 resLFChep <- lfcShrink(dds_hep, coef="condition_E2_vs_EtOH", type="apeglm")
 resLFChep_df <- as.data.frame(resLFChep)
+
+# extract significant results
 sig_hep <- resLFChep_df[
   resLFChep_df$padj < 0.05 &
-    abs(resLFChep_df$log2FoldChange) > 1,
+  !is.na(resLFChep_df$padj) &
+  abs(resLFChep_df$log2FoldChange) > 1,
 ]
 
-# VST counts
-vsd <- vst(dds_hep) 
+# VST counts & PCA plot
+vst <- assay(vst(dds_hep))
+p <- pca(vst, metadata = colData(dds_hep), removeVar = 0.1)
+biplot(p)
 
 # PCA plot
+vsd <- vst(dds_hep)
 plotPCA(vsd, intgroup=c("condition", "replicate"))
 
 # remove 'batch' effects - only run if doing downstream analyses
@@ -82,22 +87,13 @@ sampleDists <- dist(t(assay(vst(dds_hep))))
 sampleDistMatrix <- as.matrix(sampleDists)
 pheatmap::pheatmap(sampleDistMatrix, labels_row=colnames(dds_hep))
 
-sampleDists <- dist(t(assay(vsd)))
-library("RColorBrewer")
-sampleDistMatrix <- as.matrix(sampleDists)
-rownames(sampleDistMatrix) <- paste(vsd$condition, vsd$replicate, vsd$condition, sep="-")
-colnames(sampleDistMatrix) <- NULL
-colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
-pheatmap(sampleDistMatrix,
-         clustering_distance_rows=sampleDists,
-         clustering_distance_cols=sampleDists,
-         col=colors)
-
 # ----------- running DESEQ2 on HEPs (excluding rep 1 samples) ----------------- #
 
+# exclude rep 1 from counts and coldata
 hep_counts_norep1 <- hep_counts[, !grepl("\\.1$", colnames(hep_counts))]
 coldata_hep_norep1 <- coldata_hep[coldata_hep$replicate != 1, ]
 
+# ensure coldata are factors
 coldata_hep_norep1$condition <- as.factor(coldata_hep_norep1$condition)
 coldata_hep_norep1$replicate <- as.factor(coldata_hep_norep1$replicate)
 
@@ -120,33 +116,21 @@ dds_hep_norep1 <- DESeq(dds_hep_norep1)
 # shrinkage
 resLFChep_norep1 <- lfcShrink(dds_hep_norep1, coef="condition_E2_vs_EtOH", type="apeglm")
 resLFChep_df_norep1 <- as.data.frame(resLFChep_norep1)
+
+# extract significant results
 sig_hep_norep1 <- resLFChep_df_norep1[
   resLFChep_df_norep1$padj < 0.05 &
+    !is.na(resLFChep_df_norep1$padj) &
     abs(resLFChep_df_norep1$log2FoldChange) > 1,
 ]
 
-# VST counts
-vsd <- vst(dds_hep_norep1) 
-
-# PCA plot
-rld <- rlog(dds_hep_norep1, blind=FALSE)
-plotPCA(vsd, intgroup=c("condition", "replicate"))
-
-# remove 'batch' effects - only run if doing downstream analyses
-assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$replicate)
-
-# cooks distance
-par(mar=c(8,5,2,2))
-boxplot(log10(assays(dds_hep_norep1)[["cooks"]]), range=0, las=2)        
-
-# sample distance heatmap
-sampleDists <- dist(t(assay(vst(dds_hep_norep1))))
-sampleDistMatrix <- as.matrix(sampleDists)
-pheatmap::pheatmap(sampleDistMatrix, labels_row=colnames(dds_hep_norep1))
+# vst
+vst <- assay(vst(dds_hep_norep1))
+write.csv(vst, file = "/Users/sm2949/Desktop/vstCountsHEP.csv", row.names = TRUE)
 
 # ------------------------ add symbol and human orthologs for HEPs ------------------------ #
 # read in conversion file
-conversion <- read.csv('/Users/sophiemarcotte/Desktop/mart_export-2.txt', sep='\t')
+conversion <- read.csv('/Users/sm2949/Desktop/mart_export-2.txt', sep='\t')
 # filter for unique
 conversion_unique <- conversion[!duplicated(conversion$Gene.stable.ID), ]
 
@@ -158,7 +142,14 @@ resLFChep_final <- merge(resLFChep_df, conversion_unique, by = "Gene.stable.ID",
 # add ensembl as a column
 resLFChep_df_norep1$Gene.stable.ID <- rownames(resLFChep_df_norep1)
 # merge with conversion info
-resLFChep_final_norep1 <- merge(resLFChep_df_norep1, conversion_unique, by = "Gene.stable.ID", all.x = TRUE)
+resLFChep_final_norep1 <- left_join(resLFChep_df_norep1, conversion_unique, by = "Gene.stable.ID")
+# set ensembl id as row names
+rownames(resLFChep_final_norep1) <- resLFChep_final_norep1[[6]]   
+resLFChep_final_norep1 <- resLFChep_final_norep1[, -6]
+# save
+write.csv(resLFChep_final_norep1, file = "/Users/sm2949/Desktop/deseqResultsHEP.csv", row.names = TRUE)
+
+
 
 # ------------------------ volcano plots ------------------------ #
 # Define thresholds for labeling
@@ -194,10 +185,3 @@ ggplot(resLFChep_final_norep1, aes(x = log2FoldChange, y = -log10(padj))) +
        y = "-log10 Adjusted p-value",
        color = "Significant") +
   theme(legend.position = "bottom")
-
-# ------------------------ see what genes are the most variable across EtOH samples -------- #
-vsd_mat <- assay(vsd)
-# Calculate variance
-gene_vars <- apply(vsd_mat, 1, var)
-top_genes <- head(sort(gene_vars, decreasing = TRUE), 20)
-pheatmap(vsd_mat[names(top_genes), ], scale = "row", show_rownames = TRUE)

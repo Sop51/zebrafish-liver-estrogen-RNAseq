@@ -1,15 +1,12 @@
 # import required libraries
 library(DESeq2)
-library(org.Dr.eg.db)
-library(clusterProfiler)
-library(AnnotationDbi)
 library(ggplot2)
 library(ggrepel)  
 
 # ------------ clean the data from featureCounts output ------------- #
 
 # read in the counts file
-raw_counts <- read.table("/Users/sophiemarcotte/Desktop/estrogenCounts.txt", sep = "\t", header = TRUE, comment.char = "#")
+raw_counts <- read.table("/Users/sm2949/Desktop/estrogenCounts.txt", sep = "\t", header = TRUE, comment.char = "#")
 
 # clean the column names
 colnames(raw_counts) <- gsub("^X\\.data\\.mashed\\.liver\\.sm2949\\.estrogenRNAseqResults\\.aligned_bams\\.|\\.Aligned\\.sortedByCoord\\.out\\.bam$", "", colnames(raw_counts))
@@ -25,7 +22,7 @@ rownames(raw_counts) <- raw_counts[[1]]
 raw_counts <- raw_counts[, -1]       
 
 # save the cleaned count matrix as a csv
-write.csv(raw_counts, file = "cleanedEstrogenCounts.csv", row.names = TRUE)
+write.csv(raw_counts, file = "/Users/sm2949/Desktop/cleanedEstrogenCounts.csv", row.names = TRUE)
 
 # split the dataframe into HEP and BIL
 bec_cols <- grep("BEC", colnames(raw_counts), value = TRUE)
@@ -35,12 +32,16 @@ hep_cols <- grep("HEP", colnames(raw_counts), value = TRUE)
 bec_counts <- raw_counts[, bec_cols]
 hep_counts <- raw_counts[, hep_cols]
 
+# save the cleaned counts matricies as csvs
+write.csv(bec_counts, file = "/Users/sm2949/Desktop/rawCountsBEC.csv", row.names = TRUE)
+write.csv(hep_counts, file = "/Users/sm2949/Desktop/rawCountsHEP.csv", row.names = TRUE)
+
 # ------------ DESEQ2 data set up for BECs ------------- #
 
 # get the metadata information from the col names
 colnames_bec <- colnames(bec_counts)
 
-# split by '.' and extract condition and replicate
+# split by . and extract condition and replicate
 coldata_bec <- data.frame(
   condition = sapply(strsplit(colnames_bec, "\\."), `[`, 1),
   replicate = sapply(strsplit(colnames_bec, "\\."), `[`, 3)
@@ -53,7 +54,7 @@ all(rownames(coldata_bec) == colnames(bec_counts))  # assert
 
 # set condition and replicate as a factor
 coldata_bec$condition <- as.factor(coldata_bec$condition)
-coldata_bec$replicate <- as.factor(coldata_bec$condition)
+coldata_bec$replicate <- as.factor(coldata_bec$replicate)
 
 # ----------- running DESEQ2 on BECs ----------------- #
 
@@ -76,19 +77,22 @@ dds_bec <- DESeq(dds_bec)
 # shrinkage
 resLFC <- lfcShrink(dds_bec, coef="condition_E2_vs_EtOH", type="apeglm")
 resLFC_df <- as.data.frame(resLFC)
+
+# filter for sig results
 sig_bec <- resLFC_df[
   resLFC_df$padj < 0.05 &
     abs(resLFC_df$log2FoldChange) > 1,
 ]
 
-# VST counts
-vsd <- vst(dds_bec) 
+# VST counts & PCA plot
+vst <- assay(vst(dds_bec))
+write.csv(vst, file = "/Users/sm2949/Desktop/vstCountsBEC.csv", row.names = TRUE)
+p <- pca(vst, metadata = colData(dds_bec), removeVar = 0.1)
+biplot(p)
 
 # PCA plot
+vsd <- vst(dds_bec) 
 plotPCA(vsd, intgroup=c("condition", "replicate"))
-
-# remove 'batch' effects - only run if doing downstream analyses
-assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$replicate)
 
 # cooks distance
 par(mar=c(8,5,2,2))
@@ -101,6 +105,7 @@ pheatmap::pheatmap(sampleDistMatrix, labels_row=colnames(dds_bec))
 
 # ----------- running DESEQ2 on BECs (excluding rep 1 samples) ----------------- #
 
+# remove sample one from count data and coldata
 bec_counts_norep1 <- bec_counts[, !grepl("\\.1$", colnames(bec_counts))]
 coldata_bec_norep1 <- coldata_bec[coldata_bec$replicate != 1, ]
 
@@ -123,6 +128,8 @@ dds_bec_norep1 <- DESeq(dds_bec_norep1)
 # shrinkage
 resLFC_norep1 <- lfcShrink(dds_bec_norep1, coef="condition_E2_vs_EtOH", type="apeglm")
 resLFC_df_norep1 <- as.data.frame(resLFC_norep1)
+
+# filter for significant results
 sig_bec_norep1 <- resLFC_df_norep1[
   resLFC_df_norep1$padj < 0.05 &
     abs(resLFC_df_norep1$log2FoldChange) > 1,
@@ -134,7 +141,7 @@ vsd <- vst(dds_bec_norep1)
 # PCA plot
 plotPCA(vsd, intgroup=c("condition", "replicate"))
 
-# remove 'batch' effects - only run if doing downstream analyses
+# remove batch effects - only run if doing downstream analyses
 assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$replicate)
 
 # cooks distance
@@ -146,38 +153,21 @@ sampleDists <- dist(t(assay(vst(dds_bec_norep1))))
 sampleDistMatrix <- as.matrix(sampleDists)
 pheatmap::pheatmap(sampleDistMatrix, labels_row=colnames(dds_bec_norep1))
 
-
-# ----------- check the diff if rep 1 excluded vs not in BECs ----------------- #
-setdiff_genes_only_in_sig_bec <- setdiff(rownames(sig_bec), rownames(sig_bec_norep1))
-setdiff_genes_only_in_sig_bec_norep1 <- setdiff(rownames(sig_bec_norep1), rownames(sig_bec))
-
-entrez_ids <- mapIds(org.Dr.eg.db,
-                     keys = setdiff_genes_only_in_sig_bec_norep1,
-                     column = "ENTREZID",
-                     keytype = "ENSEMBL",
-                     multiVals = "first")
-
-ego <- enrichGO(gene = entrez_ids,
-                OrgDb = org.Dr.eg.db,   
-                keyType = "ENTREZID",
-                ont = "BP",             
-                pAdjustMethod = "BH",
-                pvalueCutoff = 0.05,
-                qvalueCutoff = 0.2,
-                readable = TRUE)
-
-barplot(ego, showCategory=10)
-
 # ------------------------ add symbol and human orthologs for BECs ------------------------ #
 # read in conversion file
-conversion <- read.csv('/Users/sophiemarcotte/Desktop/mart_export-2.txt', sep='\t')
+conversion <- read.csv('/Users/sm2949/Desktop/mart_export-2.txt', sep='\t')
 # filter for unique
 conversion_unique <- conversion[!duplicated(conversion$Gene.stable.ID), ]
 
 # add ensembl as a column
 resLFC_df$Gene.stable.ID <- rownames(resLFC_df)
 # merge with conversion info
-resLFC_final <- merge(resLFC_df, conversion_unique, by = "Gene.stable.ID", all.x = TRUE)
+resLFC_final <- left_join(resLFC_df, conversion_unique, by = "Gene.stable.ID")
+# set ensembl id as row names
+rownames(resLFC_final) <- resLFC_final[[6]]   
+resLFC_final <- resLFC_final[, -6]
+# save
+write.csv(resLFC_final, file = "/Users/sm2949/Desktop/deseqResultsBEC.csv", row.names = TRUE)
 
 # add ensembl as a column
 resLFC_df_norep1$Gene.stable.ID <- rownames(resLFC_df_norep1)
@@ -185,10 +175,10 @@ resLFC_df_norep1$Gene.stable.ID <- rownames(resLFC_df_norep1)
 resLFC_final_norep1 <- merge(resLFC_df_norep1, conversion_unique, by = "Gene.stable.ID", all.x = TRUE)
 
 # ------------------------ volcano plots ------------------------ #
-# Define thresholds for labeling
+# define thresholds for labeling
 resLFC_final$label <- ifelse(resLFC_final$padj < 0.05 & abs(resLFC_final$log2FoldChange) > 1.5,
                              resLFC_final$Gene.name,
-                          NA)
+                            NA)
 
 # plot
 ggplot(resLFC_final, aes(x = log2FoldChange, y = -log10(padj))) +
@@ -202,7 +192,7 @@ ggplot(resLFC_final, aes(x = log2FoldChange, y = -log10(padj))) +
        color = "Significant") +
   theme(legend.position = "bottom")
 
-# Define thresholds for labeling
+# define thresholds for labeling
 resLFC_final_norep1$label <- ifelse(resLFC_final_norep1$padj < 0.05 & abs(resLFC_final_norep1$log2FoldChange) > 1.5,
                              resLFC_final_norep1$Gene.name,
                              NA)
