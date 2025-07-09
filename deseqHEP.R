@@ -175,13 +175,23 @@ resLFChep_final_norep1$label <- ifelse(resLFChep_final_norep1$padj < 0.05 & abs(
                                     NA)
 
 # plot
-ggplot(resLFChep_final_norep1, aes(x = log2FoldChange, y = -log10(padj))) +
-  geom_point(aes(color = padj < 0.05 & abs(log2FoldChange) > 1), alpha = 0.7) +
-  scale_color_manual(values = c("grey", "red")) +
-  geom_text_repel(aes(label = label), size = 3, max.overlaps = 15) +
-  theme_minimal() +
-  labs(title = "Volcano Plot",
-       x = "log2 Fold Change",
-       y = "-log10 Adjusted p-value",
-       color = "Significant") +
-  theme(legend.position = "bottom")
+EnhancedVolcano(resLFChep_final_norep1,
+                lab = resLFChep_final_norep1$label,  
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'BEC E2 vs EtOH',
+                pCutoff = 0.05,
+                FCcutoff = 1,
+                pointSize = 2,
+                labSize = 3.5,
+                col = c('grey70', 'grey70', '#0072B2', '#D73027'),  
+                legendLabels = c('NS', 'Log2FC', 'padj', 'padj & Log2FC'),
+                legendPosition = 'bottom',
+                legendLabSize = 10,
+                legendIconSize = 3.5,
+                drawConnectors = TRUE,
+                widthConnectors = 0.4,
+                colConnectors = 'grey50',
+                max.overlaps = 20
+)
+

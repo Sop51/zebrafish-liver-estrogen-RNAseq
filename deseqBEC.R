@@ -2,6 +2,8 @@
 library(DESeq2)
 library(ggplot2)
 library(ggrepel)  
+library(biomaRt)
+library(EnhancedVolcano)
 
 # ------------ clean the data from featureCounts output ------------- #
 
@@ -181,16 +183,27 @@ resLFC_final$label <- ifelse(resLFC_final$padj < 0.05 & abs(resLFC_final$log2Fol
                             NA)
 
 # plot
-ggplot(resLFC_final, aes(x = log2FoldChange, y = -log10(padj))) +
-  geom_point(aes(color = padj < 0.05 & abs(log2FoldChange) > 1), alpha = 0.7) +
-  scale_color_manual(values = c("grey", "red")) +
-  geom_text_repel(aes(label = label), size = 3, max.overlaps = 15) +
-  theme_minimal() +
-  labs(title = "Volcano Plot",
-       x = "log2 Fold Change",
-       y = "-log10 Adjusted p-value",
-       color = "Significant") +
-  theme(legend.position = "bottom")
+EnhancedVolcano(resLFC_final,
+                lab = resLFC_final$label,  
+                x = 'log2FoldChange',
+                y = 'padj',
+                title = 'BEC E2 vs EtOH',
+                pCutoff = 0.05,
+                FCcutoff = 1,
+                pointSize = 2,
+                labSize = 3.5,
+                col = c('grey70', 'grey70', '#0072B2', '#D73027'),  
+                legendLabels = c('NS', 'Log2FC', 'padj', 'padj & Log2FC'),
+                legendPosition = 'bottom',
+                legendLabSize = 10,
+                legendIconSize = 3.5,
+                drawConnectors = TRUE,
+                widthConnectors = 0.4,
+                colConnectors = 'grey50',
+                max.overlaps = 40
+)
+
+
 
 # define thresholds for labeling
 resLFC_final_norep1$label <- ifelse(resLFC_final_norep1$padj < 0.05 & abs(resLFC_final_norep1$log2FoldChange) > 1.5,
