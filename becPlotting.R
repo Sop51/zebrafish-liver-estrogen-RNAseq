@@ -1,6 +1,9 @@
 library(pheatmap)
 library(clusterProfiler)
 library(org.Dr.eg.db)
+library(ggplot2)
+library(dplyr)
+library(genekitr)
 
 # ------------------ set up data for analyses --------------------- #
 # read in the normalized counts & deseq results
@@ -33,8 +36,8 @@ top_bec_de_genes <- unique(c(rownames(up_bec_genes), rownames(down_bec_genes)))
 heatmap_bec <- becNormalizedCounts[rownames(becNormalizedCounts) %in% top_bec_de_genes, ]
 
 # set gene symbols as row names
-rownames(heatmap_bec) <- heatmap_bec[[9]]   
-heatmap_bec <- heatmap_bec[, -9]
+rownames(heatmap_bec) <- heatmap_bec[[7]]   
+heatmap_bec <- heatmap_bec[, -7]
 
 # z-score normalize
 heatmap_bec <- t(scale(t(heatmap_bec)))
@@ -65,7 +68,7 @@ entrez_ids_bec_up <- mapIds(org.Dr.eg.db,
 go_results_bec_up <- enrichGO(gene = entrez_ids_bec_up,
                        OrgDb = org.Dr.eg.db,
                        keyType = "ENTREZID",
-                       ont = "MF", 
+                       ont = "BP", 
                        pAdjustMethod = "BH",
                        qvalueCutoff = 0.05,
                        readable = TRUE)
@@ -94,7 +97,7 @@ entrez_ids_bec_down <- mapIds(org.Dr.eg.db,
                             multiVals = "first")
 
 # run go
-down_results_bec_up <- enrichGO(gene = entrez_ids_bec_down,
+go_results_bec_down <- enrichGO(gene = entrez_ids_bec_down,
                               OrgDb = org.Dr.eg.db,
                               keyType = "ENTREZID",
                               ont = "MF", 
@@ -102,7 +105,7 @@ down_results_bec_up <- enrichGO(gene = entrez_ids_bec_down,
                               qvalueCutoff = 0.05,
                               readable = TRUE)
 # plot
-dotplot(down_results_bec_up, showCategory = 15) + 
+dotplot(go_results_bec_down, showCategory = 15) + 
   ggtitle("E2 Downregulated GO Biological Process") +
   theme(axis.text.y = element_text(size = 8, face = "plain"))
 
@@ -114,6 +117,44 @@ kegg_bec_down <- enrichKEGG(gene = entrez_ids_bec_down,
 
 # plot
 dotplot(kegg_bec_down, showCategory = 15) + ggtitle("E2 Downregulated KEGG")
+
+# ------------------ simplifying GO and KEGG results ------------------- #
+# simplify each GO result
+go_bec_up_simplified <- simplify(go_results_bec_up, cutoff = 0.7, by = "p.adjust", select_fun = min)
+go_bec_down_simplified <- simplify(go_results_bec_down, cutoff = 0.7, by = "p.adjust", select_fun = min)
+
+# take the top 10 from each
+up_go <- head(go_bec_up_simplified@result, 10)
+down_go <- head(go_bec_down_simplified@result, 10)
+
+# try plotting
+# add regulation labels
+up_go$regulation <- "Up"
+down_go$regulation <- "Down"
+
+# combine
+go_combined <- bind_rows(up_go, down_go) %>%
+  mutate(logp = -log10(p.adjust),
+         signed_logp = ifelse(regulation == "Down", -logp, logp)) %>%
+  arrange(signed_logp) %>%
+  mutate(term = factor(Description, levels = unique(Description)))
+
+# plot
+reg_colors <- c("Down" = "#4575b4",  
+                "Up"   = "#d73027")
+
+ggplot(go_combined, aes(x = signed_logp, y = term)) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = term, yend = term), color = "black") +
+  geom_point(aes(color = regulation), size = 3) +
+  scale_color_manual(values = reg_colors) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 10),
+    labels = function(x) abs(x)  
+  ) +
+  labs(x = "-log10 adjusted p-value", y = NULL,
+       title = "BEC GO Term Enrichment: Up and Down Regulation") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))
 
 # ------------------ bar plot of up, down, ns gene count ---------------- #
 
@@ -140,3 +181,95 @@ ggplot(reg_df, aes(x = Regulation, y = Count, fill = Regulation)) +
        x = NULL, y = "Number of Genes") +
   theme(legend.position = "none",
         plot.title = element_text(hjust = 0.5))
+
+# ----------------- plotting BEC genes in EtOH ------------ #
+
+# pull out only the normal samples
+etoh_bec_samples <- becNormalizedCounts[, grepl("EtOH", colnames(becNormalizedCounts))]
+
+# name genes
+genes_of_interest <- c("ENSDARG00000036456", "ENSDARG00000038153", 
+                       "ENSDARG00000040747", "ENSDARG00000100844", "ENSDARG00000005565", 
+                       "ENSDARG00000075163")
+
+gene_names <- c("anxa4", "lgals2b", "tm4sf4", "cldn15lb", "entpd8", "cxcl20")
+
+# map ensembl to name
+gene_mapping <- data.frame(
+  ensembl_id = genes_of_interest,
+  gene_name = gene_names
+)
+
+# extract the genes and add ensembl id col
+gene_expression_data <- etoh_bec_samples[genes_of_interest, ]
+gene_expression_data$ensembl_id <- rownames(gene_expression_data)
+
+# long format 
+long_data <- melt(gene_expression_data, id.vars = "ensembl_id", variable.name = "sample", value.name = "expression")
+
+# merge with gene names
+long_data <- merge(long_data, gene_mapping, by = "ensembl_id")
+
+# plot
+ggplot(long_data, aes(x = gene_name, y = expression)) +
+  geom_boxplot(fill = "#EE9F4A", color = "black", outlier.size = 1) +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 1.5, color = "darkgray") +
+  
+  theme_classic() +
+  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "black", face = "italic"),
+    axis.text.y = element_text(size = 12, color = "black"),
+    axis.title.x = element_text(size = 14, color = "black", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 14, color = "black", margin = margin(r = 10)),
+    plot.title = element_text(size = 16, color = "black", hjust = 0.5, face = "bold"),
+    
+    axis.line = element_line(color = "black", size = 0.5),
+    axis.ticks = element_line(color = "black", size = 0.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    
+    panel.grid = element_blank(),
+    plot.margin = margin(20, 20, 20, 20),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA)
+  ) +
+  
+  labs(
+    title = "Expression of BEC Markers in EtOH Samples",
+    x = "Gene",
+    y = "VST Normalized Counts"
+  ) +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) # put y at 0
+
+# plot with black background
+ggplot(long_data, aes(x = gene_name, y = expression)) +
+  geom_boxplot(fill = "#EE9F4A", color = "white", outlier.size = 1) +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 1.5, color = "gray80") +
+  
+  theme_classic() +
+  
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 12, color = "white", face = "italic"),
+    axis.text.y = element_text(size = 12, color = "white"),
+    axis.title.x = element_text(size = 14, color = "white", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 14, color = "white", margin = margin(r = 10)),
+    plot.title = element_text(size = 16, color = "white", hjust = 0.5, face = "bold"),
+    
+    axis.line = element_line(color = "white", size = 0.5),
+    axis.ticks = element_line(color = "white", size = 0.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    
+    panel.grid = element_blank(),
+    plot.margin = margin(20, 20, 20, 20),
+    
+    panel.background = element_rect(fill = "black", color = NA),
+    plot.background = element_rect(fill = "black", color = NA)
+  ) +
+  
+  labs(
+    title = "Expression of BEC Markers in EtOH Samples",
+    x = "Gene",
+    y = "VST Normalized Counts"
+  ) +
+  scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
+

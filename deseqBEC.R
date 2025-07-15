@@ -4,6 +4,9 @@ library(ggplot2)
 library(ggrepel)  
 library(biomaRt)
 library(EnhancedVolcano)
+library(PCAtools)
+library(dplyr)
+library(tidyverse)
 
 # ------------ clean the data from featureCounts output ------------- #
 
@@ -34,9 +37,13 @@ hep_cols <- grep("HEP", colnames(raw_counts), value = TRUE)
 bec_counts <- raw_counts[, bec_cols]
 hep_counts <- raw_counts[, hep_cols]
 
+# remove the first sample
+bec_counts_norep1 <- bec_counts %>% select(-ends_with("1"))
+hep_counts_norep1 <- hep_counts %>% select(-ends_with("1"))
+
 # save the cleaned counts matricies as csvs
-write.csv(bec_counts, file = "/Users/sm2949/Desktop/rawCountsBEC.csv", row.names = TRUE)
-write.csv(hep_counts, file = "/Users/sm2949/Desktop/rawCountsHEP.csv", row.names = TRUE)
+write.csv(bec_counts_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv", row.names = TRUE)
+write.csv(hep_counts_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv", row.names = TRUE)
 
 # ------------ DESEQ2 data set up for BECs ------------- #
 
@@ -137,14 +144,14 @@ sig_bec_norep1 <- resLFC_df_norep1[
     abs(resLFC_df_norep1$log2FoldChange) > 1,
 ]
 
-# VST counts
-vsd <- vst(dds_bec_norep1) 
+# VST counts & PCA plot
+vst <- assay(vst(dds_bec_norep1))
+write.csv(vst, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv", row.names = TRUE)
+p <- pca(vst, metadata = colData(dds_bec_norep1), removeVar = 0.1)
+biplot(p)
 
 # PCA plot
 plotPCA(vsd, intgroup=c("condition", "replicate"))
-
-# remove batch effects - only run if doing downstream analyses
-assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$replicate)
 
 # cooks distance
 par(mar=c(8,5,2,2))
@@ -162,19 +169,14 @@ conversion <- read.csv('/Users/sm2949/Desktop/mart_export-2.txt', sep='\t')
 conversion_unique <- conversion[!duplicated(conversion$Gene.stable.ID), ]
 
 # add ensembl as a column
-resLFC_df$Gene.stable.ID <- rownames(resLFC_df)
-# merge with conversion info
-resLFC_final <- left_join(resLFC_df, conversion_unique, by = "Gene.stable.ID")
-# set ensembl id as row names
-rownames(resLFC_final) <- resLFC_final[[6]]   
-resLFC_final <- resLFC_final[, -6]
-# save
-write.csv(resLFC_final, file = "/Users/sm2949/Desktop/deseqResultsBEC.csv", row.names = TRUE)
-
-# add ensembl as a column
 resLFC_df_norep1$Gene.stable.ID <- rownames(resLFC_df_norep1)
 # merge with conversion info
-resLFC_final_norep1 <- merge(resLFC_df_norep1, conversion_unique, by = "Gene.stable.ID", all.x = TRUE)
+resLFC_final_norep1 <- left_join(resLFC_df_norep1, conversion_unique, by = "Gene.stable.ID")
+# set ensembl id as row names
+rownames(resLFC_final_norep1) <- resLFC_final_norep1[[6]]   
+resLFC_final_norep1 <- resLFC_final_norep1[, -6]
+# save
+write.csv(resLFC_final_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv", row.names = TRUE)
 
 # ------------------------ volcano plots ------------------------ #
 # define thresholds for labeling

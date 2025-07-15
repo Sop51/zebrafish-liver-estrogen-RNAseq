@@ -150,7 +150,6 @@ resLFChep_final_norep1 <- resLFChep_final_norep1[, -6]
 write.csv(resLFChep_final_norep1, file = "/Users/sm2949/Desktop/deseqResultsHEP.csv", row.names = TRUE)
 
 
-
 # ------------------------ volcano plots ------------------------ #
 # Define thresholds for labeling
 resLFChep_final$label <- ifelse(resLFChep_final$padj < 0.05 & abs(resLFChep_final$log2FoldChange) > 1.5,
