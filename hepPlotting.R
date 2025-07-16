@@ -117,6 +117,106 @@ kegg_hep_down <- enrichKEGG(gene = entrez_ids_hep_down,
 # plot
 dotplot(kegg_hep_down, showCategory = 15) + ggtitle("E2 Downregulated KEGG")
 
+# ------------------ simplifying GO and KEGG results ------------------- #
+
+# simplify each GO result ----
+go_hep_up_simplified <- simplify(go_results_hep_up, cutoff = 0.7, by = "p.adjust", select_fun = min)
+
+# take the top 10 from each
+up_go <- head(go_hep_up_simplified@result, 10)
+
+# negative log pval
+up_go <- up_go %>%
+  mutate(
+    signed_logp = -log10(p.adjust),  
+  )
+
+# plot
+ggplot(up_go, aes(x = signed_logp, y = reorder(Description, signed_logp))) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = Description, yend = Description), color = "black") +
+  geom_point(color = "#EB712A", size = 3) +  
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value",
+    y = NULL,
+    title = "Hepatocyte GO Term Enrichment: Upregulated"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 9))
+
+# black background plot
+ggplot(up_go, aes(x = signed_logp, y = reorder(Description, signed_logp))) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = Description, yend = Description), color = "white") +
+  geom_point(color = "#EB712A", size = 3) +  # orange/red for upregulated
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value",
+    y = NULL,
+    title = "Hepatocyte GO Term Enrichment: Upregulated"
+  ) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    plot.background = element_rect(fill = "black", color = NA),
+    panel.background = element_rect(fill = "black", color = NA),
+    panel.grid.major = element_line(color = "gray30"),
+    panel.grid.minor = element_line(color = "gray20"),
+    axis.text = element_text(color = "white", size = 9),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold", size = 14)
+  )
+
+
+# take the top 10 from kegg results ----
+up_kegg <- head(kegg_hep_up@result, 10)
+
+# negative log pval
+up_kegg <- up_kegg %>%
+  mutate(
+    signed_logp = -log10(p.adjust),  
+  )
+
+# plot
+ggplot(up_kegg, aes(x = signed_logp, y = reorder(Description, signed_logp))) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = Description, yend = Description), color = "black") +
+  geom_point(color = "#EB712A", size = 3) +  
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value",
+    y = NULL,
+    title = "Hepatocyte KEGG Pathway Enrichment: Upregulated"
+  ) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 9))
+
+# black background plot
+ggplot(up_kegg, aes(x = signed_logp, y = reorder(Description, signed_logp))) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = Description, yend = Description), color = "white") +
+  geom_point(color = "#EB712A", size = 3) +  # orange/red for upregulated
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 5)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value",
+    y = NULL,
+    title = "Hepatocyte KEGG Pathway Enrichment: Upregulated"
+  ) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    plot.background = element_rect(fill = "black", color = NA),
+    panel.background = element_rect(fill = "black", color = NA),
+    panel.grid.major = element_line(color = "gray30"),
+    panel.grid.minor = element_line(color = "gray20"),
+    axis.text = element_text(color = "white", size = 9),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold", size = 14)
+  )
+
 # ------------------ bar plot of up, down, ns gene count ---------------- #
 
 # categorize genes

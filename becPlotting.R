@@ -119,7 +119,8 @@ kegg_bec_down <- enrichKEGG(gene = entrez_ids_bec_down,
 dotplot(kegg_bec_down, showCategory = 15) + ggtitle("E2 Downregulated KEGG")
 
 # ------------------ simplifying GO and KEGG results ------------------- #
-# simplify each GO result
+
+# simplify each GO result ----
 go_bec_up_simplified <- simplify(go_results_bec_up, cutoff = 0.7, by = "p.adjust", select_fun = min)
 go_bec_down_simplified <- simplify(go_results_bec_down, cutoff = 0.7, by = "p.adjust", select_fun = min)
 
@@ -129,8 +130,8 @@ down_go <- head(go_bec_down_simplified@result, 10)
 
 # try plotting
 # add regulation labels
-up_go$regulation <- "Up"
-down_go$regulation <- "Down"
+up_go$Regulation <- "Up"
+down_go$Regulation <- "Down"
 
 # combine
 go_combined <- bind_rows(up_go, down_go) %>%
@@ -140,12 +141,12 @@ go_combined <- bind_rows(up_go, down_go) %>%
   mutate(term = factor(Description, levels = unique(Description)))
 
 # plot
-reg_colors <- c("Down" = "#4575b4",  
-                "Up"   = "#d73027")
+reg_colors <- c("Down" = "#523095",  
+                "Up"   = "#EB712A")
 
 ggplot(go_combined, aes(x = signed_logp, y = term)) +
   geom_segment(aes(x = 0, xend = signed_logp, y = term, yend = term), color = "black") +
-  geom_point(aes(color = regulation), size = 3) +
+  geom_point(aes(color = Regulation), size = 3) +
   scale_color_manual(values = reg_colors) +
   scale_x_continuous(
     breaks = scales::pretty_breaks(n = 10),
@@ -155,6 +156,95 @@ ggplot(go_combined, aes(x = signed_logp, y = term)) +
        title = "BEC GO Term Enrichment: Up and Down Regulation") +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 8))
+
+# black background plot
+ggplot(go_combined, aes(x = signed_logp, y = term)) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = term, yend = term), color = "white") +
+  geom_point(aes(color = Regulation), size = 3) +
+  scale_color_manual(values = reg_colors) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 10),
+    labels = function(x) abs(x)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value", 
+    y = NULL,
+    title = "BEC GO Term Enrichment: Up and Down Regulation"
+  ) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    plot.background = element_rect(fill = "black", color = NA),
+    panel.background = element_rect(fill = "black", color = NA),
+    panel.grid.major = element_line(color = "gray30"),
+    panel.grid.minor = element_line(color = "gray20"),
+    axis.text = element_text(color = "white", size = 8),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold", size = 14),
+    legend.background = element_rect(fill = "black", color = NA),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white")
+  )
+
+# take the top 10 from each kegg results ----
+up_kegg <- head(kegg_bec_up@result, 10)
+down_kegg <- head(kegg_bec_down@result, 10)
+
+# try plotting
+# add regulation labels
+up_kegg$Regulation <- "Up"
+down_kegg$Regulation <- "Down"
+
+# combine
+kegg_combined <- bind_rows(up_kegg, down_kegg) %>%
+  mutate(logp = -log10(p.adjust),
+         signed_logp = ifelse(Regulation == "Down", -logp, logp)) %>%
+  arrange(signed_logp) %>%
+  mutate(term = factor(Description, levels = unique(Description)))
+
+# plot
+reg_colors <- c("Down" = "#523095",  
+                "Up"   = "#EB712A")
+
+ggplot(kegg_combined, aes(x = signed_logp, y = term)) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = term, yend = term), color = "black") +
+  geom_point(aes(color = Regulation), size = 3) +
+  scale_color_manual(values = reg_colors) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 10),
+    labels = function(x) abs(x)  
+  ) +
+  labs(x = "-log10 adjusted p-value", y = NULL,
+       title = "BEC KEGG Pathway Enrichment: Up and Down Regulation") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))
+
+# black background plot
+ggplot(kegg_combined, aes(x = signed_logp, y = term)) +
+  geom_segment(aes(x = 0, xend = signed_logp, y = term, yend = term), color = "white") +
+  geom_point(aes(color = Regulation), size = 3) +
+  scale_color_manual(values = reg_colors) +
+  scale_x_continuous(
+    breaks = scales::pretty_breaks(n = 10),
+    labels = function(x) abs(x)
+  ) +
+  labs(
+    x = "-log10 adjusted p-value", 
+    y = NULL,
+    title = "BEC KEGG Pathway Enrichment: Up and Down Regulation"
+  ) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    plot.background = element_rect(fill = "black", color = NA),
+    panel.background = element_rect(fill = "black", color = NA),
+    panel.grid.major = element_line(color = "gray30"),
+    panel.grid.minor = element_line(color = "gray20"),
+    axis.text = element_text(color = "white", size = 8),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold", size = 14),
+    legend.background = element_rect(fill = "black", color = NA),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white")
+  )
 
 # ------------------ bar plot of up, down, ns gene count ---------------- #
 
