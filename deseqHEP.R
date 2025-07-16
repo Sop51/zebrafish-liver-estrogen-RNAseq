@@ -126,7 +126,7 @@ sig_hep_norep1 <- resLFChep_df_norep1[
 
 # vst
 vst <- assay(vst(dds_hep_norep1))
-write.csv(vst, file = "/Users/sm2949/Desktop/vstCountsHEP.csv", row.names = TRUE)
+write.csv(vst, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv", row.names = TRUE)
 
 # ------------------------ add symbol and human orthologs for HEPs ------------------------ #
 # read in conversion file
