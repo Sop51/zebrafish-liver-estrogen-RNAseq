@@ -1,5 +1,6 @@
 library(tidyverse)
 library(DESeq2)
+library(pheatmap)
 
 # read in the normalized counts for each dataset
 hep_norm_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names = 1)
@@ -104,20 +105,19 @@ combined_counts <- cbind(etoh_hep_samples, etoh_bec_samples)
 hep_bec_genes <- union(hep_ensembl_markers, bec_ensembl_markers)
 subset_counts <- combined_counts[hep_bec_genes, ]
 
-# create annotation for genes
-gene_annotations <- data.frame(
-  Marker_For = c(rep("Hepatocyte", length(hep_ensembl_markers)),
-                  rep("BEC", length(bec_ensembl_markers)))
-)
-rownames(gene_annotations) <- c(hep_ensembl_markers, bec_ensembl_markers)
-
 # custom color assignment for annotations
 annotation_colors <- list(
-  Marker_For = c(
-    "Hepatocyte" = "#413C58",  
-    "BEC" = "#79B86C"         
+  Cell_Type = c(
+    "Hepatocyte" = "#FF0090",  
+    "BEC" = "#97E997"   
   )
 )
+
+# create annotation for sample cell type
+sample_annotations <- data.frame(
+  Cell_Type = ifelse(grepl("EtOH.*HEP", colnames(subset_counts)), "Hepatocyte", "BEC")
+)
+rownames(sample_annotations) <- colnames(subset_counts)
 
 # add gene symbols for row names over ensembl
 gene_lookup <- data.frame(
@@ -132,15 +132,21 @@ rownames(subset_counts) <- gene_lookup$gene[match(rownames(subset_counts), gene_
 rownames(gene_annotations) <- rownames(subset_counts)
 
 # plot heatmap
-pheatmap(subset_counts,
-         annotation_row = gene_annotations,
+p <- pheatmap(subset_counts,
+         annotation_col = sample_annotations,
          annotation_colors = annotation_colors,
          cluster_rows = TRUE,
          cluster_cols = TRUE,
          show_colnames = TRUE,
+         display_numbers = TRUE,
          show_rownames = TRUE,
          fontsize_row = 10,
          fontsize_col = 8,
          scale = "row", # scale 
-         color = colorRampPalette(c("#523095", "white", "#EB712A"))(100),
+         color = colorRampPalette(c("#963489", "white", "#E6C67B"))(100),
          main = "Marker Gene Expression (EtOH Samples)")
+
+# give a black background
+grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
+grid.draw(p)
+grid.gedit("layout", gp = gpar(col = "white", text = ""))
