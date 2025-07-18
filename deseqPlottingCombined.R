@@ -2,8 +2,8 @@ library(tidyverse)
 library(DESeq2)
 
 # read in the normalized counts for each dataset
-hep_norm_counts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names = 1)
-bec_norm_counts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv', row.names = 1)
+hep_norm_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names = 1)
+bec_norm_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv', row.names = 1)
 
 # read in the raw counts for each dataset
 hep_raw_counts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv', row.names = 1)
@@ -97,63 +97,50 @@ bec_gene_markers <- c("anxa4", "sox9b", "krt18b", "alcama")
 etoh_bec_samples <- bec_norm_counts[, grepl("EtOH", colnames(bec_norm_counts))]
 etoh_hep_samples <- hep_norm_counts[, grepl("EtOH", colnames(hep_norm_counts))]
 
+# combine samples
+combined_counts <- cbind(etoh_hep_samples, etoh_bec_samples)
+
 # subset to marker genes
 hep_bec_genes <- union(hep_ensembl_markers, bec_ensembl_markers)
+subset_counts <- combined_counts[hep_bec_genes, ]
 
-# create a lookup for gene labels
+# create annotation for genes
+gene_annotations <- data.frame(
+  Marker_For = c(rep("Hepatocyte", length(hep_ensembl_markers)),
+                  rep("BEC", length(bec_ensembl_markers)))
+)
+rownames(gene_annotations) <- c(hep_ensembl_markers, bec_ensembl_markers)
+
+# custom color assignment for annotations
+annotation_colors <- list(
+  Marker_For = c(
+    "Hepatocyte" = "#413C58",  
+    "BEC" = "#79B86C"         
+  )
+)
+
+# add gene symbols for row names over ensembl
 gene_lookup <- data.frame(
   ensembl = c(hep_ensembl_markers, bec_ensembl_markers),
   gene = c(hep_gene_markers, bec_gene_markers),
-  stringsAsFactors = FALSE
-) %>% mutate(label = gene)
+  Marker_For = c(rep("Hepatocyte", length(hep_gene_markers)),
+                  rep("BEC", length(bec_gene_markers)))
+)
 
-# define function to prep long data for either gene set 
-prep_plot_data <- function(gene_ids, gene_lookup) {
-  hep_sub <- etoh_hep_samples[gene_ids, ] %>%
-    as.data.frame() %>%
-    mutate(ensembl = rownames(.), Identity = "Hepatocyte")
-  
-  bec_sub <- etoh_bec_samples[gene_ids, ] %>%
-    as.data.frame() %>%
-    mutate(ensembl = rownames(.), Identity = "BEC")
-  
-  combined <- bind_rows(hep_sub, bec_sub)
-  
-  # reshape
-  long_df <- combined %>%
-    pivot_longer(cols = -c(ensembl, Identity), names_to = "sample", values_to = "vst") %>%
-    left_join(gene_lookup, by = "ensembl")
-  
-  return(long_df)
-}
+# rename rownames to gene symbols
+rownames(subset_counts) <- gene_lookup$gene[match(rownames(subset_counts), gene_lookup$ensembl)]
+rownames(gene_annotations) <- rownames(subset_counts)
 
-# hepatocyte marker plot
-hep_data_long <- prep_plot_data(hep_ensembl_markers, gene_lookup)
-
-ggplot(hep_data_long, aes(x = label, y = vst, fill = Identity)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.7, position = position_dodge(width = 0.7)) +
-  geom_jitter(aes(color = Identity), size = 1, position = position_dodge(width = 0.7)) +
-  labs(title = "Hepatocyte Marker Gene Expression",
-       x = "Gene", y = "Normalized Expression Level (VST)") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Hepatocyte" = "#413C58", "BEC" = "#79B86C")) +
-  scale_color_manual(values = c("Hepatocyte" = "#413C58", "BEC" = "#79B86C"))
-
-
-# BEC marker plot 
-bec_data_long <- prep_plot_data(bec_ensembl_markers, gene_lookup)
-
-ggplot(bec_data_long, aes(x = label, y = vst, fill = Identity)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.7, position = position_dodge(width = 0.7)) +
-  geom_jitter(aes(color = Identity), size = 1, position = position_dodge(width = 0.7)) +
-  labs(title = "BEC Marker Gene Expression",
-       x = "Gene", y = "Normalized Expression Level (VST)") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_fill_manual(values = c("Hepatocyte" = "#413C58", "BEC" = "#79B86C")) +
-  scale_color_manual(values = c("Hepatocyte" = "#413C58", "BEC" = "#79B86C"))
-
-
-
-
+# plot heatmap
+pheatmap(subset_counts,
+         annotation_row = gene_annotations,
+         annotation_colors = annotation_colors,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_colnames = TRUE,
+         show_rownames = TRUE,
+         fontsize_row = 10,
+         fontsize_col = 8,
+         scale = "row", # scale 
+         color = colorRampPalette(c("#523095", "white", "#EB712A"))(100),
+         main = "Marker Gene Expression (EtOH Samples)")
