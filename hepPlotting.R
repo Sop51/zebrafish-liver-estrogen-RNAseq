@@ -7,8 +7,8 @@ library(reshape2)
 
 # ------------------ set up data for analyses --------------------- #
 # read in the normalized counts & deseq results
-hepNormalizedCounts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names=1)
-hepDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
+hepNormalizedCounts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names=1)
+hepDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
 
 # if no gene symbol, replace with ensembl
 hepDeseqResults$Gene.name <- ifelse(
@@ -364,5 +364,6 @@ pheatmap(scaled_er_subset,
          show_colnames = TRUE,
          color = colorRampPalette(c("#523095", "white", "#EB712A"))(100),
          main = "KEGG Protein Processing in Endoplasmic Reticulum Genes")
+
 
 

@@ -1,16 +1,30 @@
 library(tidyverse)
 library(DESeq2)
 library(pheatmap)
+library(grid)
+library(clusterProfiler)
+library(org.Dr.eg.db)
+library(VennDiagram)
 
 # read in the normalized counts for each dataset
 hep_norm_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names = 1)
 bec_norm_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv', row.names = 1)
 
 # read in the raw counts for each dataset
-hep_raw_counts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv', row.names = 1)
-bec_raw_counts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv', row.names = 1)
+hep_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv', row.names = 1)
+bec_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv', row.names = 1)
 
-# prepare the count matrix for deseq ------------------------
+# read in the DE results
+hepDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
+becDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
+
+# filter for sig results
+hepDeseqResults_sig <- hepDeseqResults %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05)
+becDeseqResults_sig <- becDeseqResults %>%
+  filter(abs(log2FoldChange) > 1, padj < 0.05)
+
+# -------------------- prepare the count matrix for deseq ONLY ETOH ------------------------ #
 # pull out only control samples
 etoh_bec_raw <- bec_raw_counts[, grepl("EtOH", colnames(bec_raw_counts))]
 etoh_hep_raw <- hep_raw_counts[, grepl("EtOH", colnames(hep_raw_counts))]
@@ -23,7 +37,7 @@ etoh_combined_raw <- merge(etoh_hep_raw, etoh_bec_raw,
 rownames(etoh_combined_raw) <- etoh_combined_raw$Row.names
 etoh_combined_raw$Row.names <- NULL
 
-# create the col data for deseq ----------------------------
+# ------------------------- create the col data for deseq ONLY ETOH ----------------------------
 colnames_combined <- colnames(etoh_combined_raw)
 
 # split by . and extract condition and replicate
@@ -41,7 +55,7 @@ all(rownames(coldata_combined) == colnames(etoh_combined_raw))  # assert
 coldata_combined$cell_type <- as.factor(coldata_combined$cell_type)
 coldata_combined$replicate <- as.factor(coldata_combined$replicate)
 
-# running deseq ----------------------------------------
+# ----------------------- running deseq ETOH ONLY ----------------------------------------
 # create the deseq object
 dds_comb <- DESeqDataSetFromMatrix(countData = etoh_combined_raw,
                                   colData = coldata_combined,
@@ -79,7 +93,7 @@ resLFCcomb_df$Gene.stable.ID <- rownames(resLFCcomb_df)
 # merge with conversion info
 resLFCcomb_final <- merge(resLFCcomb_df, conversion_unique, by = "Gene.stable.ID", all.x = TRUE)
 
-# ------------------------------- create plots ------------------------------------
+# ------------------------------- create plots for marker genes in etoh ------------------------------------
 
 # hepatocyte genes to plot
 hep_ensembl_markers <- c("ENSDARG00000042780", "ENSDARG00000015866", 
@@ -150,3 +164,164 @@ p <- pheatmap(subset_counts,
 grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
 grid.draw(p)
 grid.gedit("layout", gp = gpar(col = "white", text = ""))
+
+# -------------------- prepare the count matrix for deseq COMBINED ------------------------ #
+# merge
+combined_raw <- merge(hep_raw_counts, bec_raw_counts, 
+                           by = "row.names", all = TRUE)
+
+# set gene ID as rownames again
+rownames(combined_raw) <- combined_raw$Row.names
+combined_raw$Row.names <- NULL
+
+# ------------------------- create the col data for deseq COMBINED ----------------------------
+colnames_combined <- colnames(combined_raw)
+
+# split by . and extract condition and replicate
+coldata_combined <- data.frame(
+  cell_type = sapply(strsplit(colnames_combined, "\\."), `[`, 2),
+  replicate = sapply(strsplit(colnames_combined, "\\."), `[`, 3)
+)
+rownames(coldata_combined) <- colnames_combined
+
+# reorder to match counts col names
+coldata_combined <- coldata_combined[colnames(combined_raw), ]
+all(rownames(coldata_combined) == colnames(combined_raw))  # assert
+
+# set cell type and replicate as a factor
+coldata_combined$cell_type <- as.factor(coldata_combined$cell_type)
+coldata_combined$replicate <- as.factor(coldata_combined$replicate)
+
+# ----------------------- running deseq ETOH ONLY ----------------------------------------
+# create the deseq object
+dds_comb <- DESeqDataSetFromMatrix(countData = combined_raw,
+                                   colData = coldata_combined,
+                                   design = ~ 1)
+
+# run DE
+dds_comb <- DESeq(dds_comb)
+
+# vst
+vst <- assay(vst(dds_comb))
+write.csv(vst, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = TRUE)
+
+
+# ------------------- plotting estrogen receptor genes ------------------------- #
+
+# read in the combined normalized counts
+comb_normalized_counts <- read.csv("/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = 1)
+
+# name the receptor
+r_genes_to_plot <- c('gper1', 'esr1', 'esr2a', 'esr2b')
+
+# ensembl names
+ensembl_r_genes_to_plot <- c('ENSDARG00000074661','ENSDARG00000004111',
+                             'ENSDARG00000016454','ENSDARG00000034181')
+
+# subset the count df
+r_subset <- comb_normalized_counts[rownames(comb_normalized_counts) %in% ensembl_r_genes_to_plot, ]
+
+# match order of gene symbols to rows in r_subset
+matched_gene_symbols <- r_genes_to_plot[match(rownames(r_subset), ensembl_r_genes_to_plot)]
+
+# set gene symbols as rownames
+rownames(r_subset) <- matched_gene_symbols
+
+# custom color assignment for annotations
+annotation_colors <- list(
+  Cell_Type = c(
+    "Hepatocyte" = "#FF0090",  
+    "BEC" = "#97E997"   
+  )
+)
+
+# create annotation for sample cell type
+sample_annotations <- data.frame(
+  Cell_Type = ifelse(grepl("HEP", colnames(r_subset)), "Hepatocyte", "BEC")
+)
+rownames(sample_annotations) <- colnames(r_subset)
+
+scaled_r_subset <- t(scale(t(r_subset)))
+
+# plot heatmap
+p <- pheatmap(scaled_r_subset,
+         annotation_col = sample_annotations,
+         annotation_colors = annotation_colors,
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         show_colnames = TRUE,
+         display_numbers = TRUE,
+         show_rownames = TRUE,
+         fontsize_row = 10,
+         fontsize_col = 8,
+         scale = "row", # scale 
+         color = colorRampPalette(c("#963489", "white", "#E6C67B"))(100),
+         main = "Estrogen Receptor Genes")
+
+# give a black background
+grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
+grid.draw(p)
+grid.gedit("layout", gp = gpar(col = "white", text = ""))
+
+# -------- find overlapping and non - overlapping DE genes between cell types -----------
+# get genes that are common
+common_de_genes <- intersect(rownames(hepDeseqResults_sig), rownames(becDeseqResults_sig))
+
+# pull out the rows of the common genes
+hepOverlap <- hepDeseqResults_sig[common_de_genes,]
+becOverlap <- becDeseqResults_sig[common_de_genes,]
+
+# get de genes unique to hep
+hep_unique_genes <- setdiff(rownames(hepDeseqResults_sig), common_de_genes)
+hepUnique <- hepDeseqResults_sig[hep_unique_genes, ]
+
+# get de genes unique to bec
+bec_unique_genes <- setdiff(rownames(becDeseqResults_sig), common_de_genes)
+becUnique <- becDeseqResults_sig[bec_unique_genes, ]
+
+# create a venn diagram ----
+# clear the page
+grid.newpage()
+
+# plot
+venn.plot <- draw.pairwise.venn(
+  area1 = length(rownames(hepDeseqResults_sig)),
+  area2 = length(rownames(becDeseqResults_sig)),
+  cross.area = length(common_de_genes),
+  category = c("Hep", "BEC"),
+  fill = c("#FF0090", "#97E997"),
+  scaled = TRUE,
+  ext.text = FALSE,
+  cex = 2,
+  cat.cex = 2,
+  cat.pos = c(0, 180), 
+  cat.dist = c(0.05, 0.025)
+)
+
+# common genes into kegg / go ----
+# convert to entrez id
+entrez_ids_common <- mapIds(org.Dr.eg.db,
+                            keys = common_de_genes,
+                            column = "ENTREZID",
+                            keytype = "ENSEMBL",
+                            multiVals = "first")
+
+# run go
+go_results_common <- enrichGO(gene = entrez_ids_common,
+                              OrgDb = org.Dr.eg.db,
+                              keyType = "ENTREZID",
+                              ont = "BP", 
+                              pAdjustMethod = "BH",
+                              qvalueCutoff = 0.05,
+                              readable = TRUE)
+# plot
+dotplot(go_results_common, showCategory = 15) + ggtitle("Common DE Genes GO Biological Process")
+
+# KEGG enrichment
+kegg_bec_common <- enrichKEGG(gene = entrez_ids_common,
+                          organism = "dre",
+                          pAdjustMethod = "BH",
+                          qvalueCutoff = 0.05)
+
+# plot
+dotplot(kegg_bec_common, showCategory = 15) + ggtitle("Common DE Genes KEGG")

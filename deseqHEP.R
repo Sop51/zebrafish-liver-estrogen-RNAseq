@@ -124,13 +124,47 @@ sig_hep_norep1 <- resLFChep_df_norep1[
     abs(resLFChep_df_norep1$log2FoldChange) > 1,
 ]
 
-# vst
+# vsd extract
+vsd <- vst(dds_hep_norep1, blind=FALSE)
+
+# create the pca plot
+p <- plotPCA(vsd, intgroup = c("condition", "replicate"), returnData = FALSE)
+biplot(p)
+
+# get PCA data for pca plot with black background
+pcaData <- plotPCA(vsd, intgroup = c("condition", "replicate"), returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+# create plot
+ggplot(pcaData, aes(PC1, PC2, color = condition, shape = replicate)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  theme_void() +
+  theme(
+    panel.background = element_rect(fill = "black"),
+    plot.background = element_rect(fill = "black"),
+    text = element_text(color = "white"),
+    axis.text = element_text(color = "white"),
+    axis.title = element_text(color = "white"),
+    axis.line = element_line(color = "white"),
+    axis.ticks = element_line(color = "white"),
+    legend.background = element_rect(fill = "black"),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white"),
+    legend.key = element_rect(fill = "white")
+  ) +
+  scale_color_brewer(type = "qual", palette = "Set2")
+
+# vst & PCA
 vst <- assay(vst(dds_hep_norep1))
+p <- pca(vst, metadata = colData(dds_hep_norep1), removeVar = 0.1)
+biplot(p)
 write.csv(vst, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv", row.names = TRUE)
 
 # ------------------------ add symbol and human orthologs for HEPs ------------------------ #
 # read in conversion file
-conversion <- read.csv('/Users/sm2949/Desktop/mart_export-2.txt', sep='\t')
+conversion <- read.csv('/Users/sophiemarcotte/Desktop/mart_export-2.txt', sep='\t')
 # filter for unique
 conversion_unique <- conversion[!duplicated(conversion$Gene.stable.ID), ]
 
@@ -147,7 +181,7 @@ resLFChep_final_norep1 <- left_join(resLFChep_df_norep1, conversion_unique, by =
 rownames(resLFChep_final_norep1) <- resLFChep_final_norep1[[6]]   
 resLFChep_final_norep1 <- resLFChep_final_norep1[, -6]
 # save
-write.csv(resLFChep_final_norep1, file = "/Users/sm2949/Desktop/deseqResultsHEP.csv", row.names = TRUE)
+write.csv(resLFChep_final_norep1, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv", row.names = TRUE)
 
 
 # ------------------------ volcano plots ------------------------ #

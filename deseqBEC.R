@@ -6,12 +6,13 @@ library(biomaRt)
 library(EnhancedVolcano)
 library(PCAtools)
 library(dplyr)
+library(tidyr)
 library(tidyverse)
 
 # ------------ clean the data from featureCounts output ------------- #
 
 # read in the counts file
-raw_counts <- read.table("/Users/sm2949/Desktop/estrogenCounts.txt", sep = "\t", header = TRUE, comment.char = "#")
+raw_counts <- read.table("/Users/sophiemarcotte/Desktop/estrogenCounts.txt", sep = "\t", header = TRUE, comment.char = "#")
 
 # clean the column names
 colnames(raw_counts) <- gsub("^X\\.data\\.mashed\\.liver\\.sm2949\\.estrogenRNAseqResults\\.aligned_bams\\.|\\.Aligned\\.sortedByCoord\\.out\\.bam$", "", colnames(raw_counts))
@@ -27,7 +28,7 @@ rownames(raw_counts) <- raw_counts[[1]]
 raw_counts <- raw_counts[, -1]       
 
 # save the cleaned count matrix as a csv
-write.csv(raw_counts, file = "/Users/sm2949/Desktop/cleanedEstrogenCounts.csv", row.names = TRUE)
+write.csv(raw_counts, file = "/Users/sophiemarcotte/Desktop/cleanedEstrogenCounts.csv", row.names = TRUE)
 
 # split the dataframe into HEP and BIL
 bec_cols <- grep("BEC", colnames(raw_counts), value = TRUE)
@@ -42,8 +43,8 @@ bec_counts_norep1 <- bec_counts %>% select(-ends_with("1"))
 hep_counts_norep1 <- hep_counts %>% select(-ends_with("1"))
 
 # save the cleaned counts matricies as csvs
-write.csv(bec_counts_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv", row.names = TRUE)
-write.csv(hep_counts_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv", row.names = TRUE)
+write.csv(bec_counts_norep1, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv", row.names = TRUE)
+write.csv(hep_counts_norep1, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsHEP.csv", row.names = TRUE)
 
 # ------------ DESEQ2 data set up for BECs ------------- #
 
@@ -146,7 +147,7 @@ sig_bec_norep1 <- resLFC_df_norep1[
 
 # VST counts & PCA plot
 vst <- assay(vst(dds_bec_norep1))
-write.csv(vst, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv", row.names = TRUE)
+write.csv(vst, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsBEC.csv", row.names = TRUE)
 p <- pca(vst, metadata = colData(dds_bec_norep1), removeVar = 0.1)
 biplot(p)
 
@@ -164,7 +165,7 @@ pheatmap::pheatmap(sampleDistMatrix, labels_row=colnames(dds_bec_norep1))
 
 # ------------------------ add symbol and human orthologs for BECs ------------------------ #
 # read in conversion file
-conversion <- read.csv('/Users/sm2949/Desktop/mart_export-2.txt', sep='\t')
+conversion <- read.csv('/Users/sophiemarcotte/Desktop/mart_export-2.txt', sep='\t')
 # filter for unique
 conversion_unique <- conversion[!duplicated(conversion$Gene.stable.ID), ]
 
@@ -176,7 +177,7 @@ resLFC_final_norep1 <- left_join(resLFC_df_norep1, conversion_unique, by = "Gene
 rownames(resLFC_final_norep1) <- resLFC_final_norep1[[6]]   
 resLFC_final_norep1 <- resLFC_final_norep1[, -6]
 # save
-write.csv(resLFC_final_norep1, file = "/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv", row.names = TRUE)
+write.csv(resLFC_final_norep1, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv", row.names = TRUE)
 
 # ------------------------ volcano plots ------------------------ #
 # define thresholds for labeling
