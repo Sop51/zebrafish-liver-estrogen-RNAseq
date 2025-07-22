@@ -15,8 +15,8 @@ hep_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq
 bec_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv', row.names = 1)
 
 # read in the DE results
-hepDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
-becDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
+hepDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
+becDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
 
 # filter for sig results
 hepDeseqResults_sig <- hepDeseqResults %>%
@@ -325,3 +325,130 @@ kegg_bec_common <- enrichKEGG(gene = entrez_ids_common,
 
 # plot
 dotplot(kegg_bec_common, showCategory = 15) + ggtitle("Common DE Genes KEGG")
+
+# plotting some of the DE common genes -----
+
+er_stress_ensembl <- c('ENSDARG00000102808', 'ENSDARG00000009001', 'ENSDARG00000018491',
+                       'ENSDARG00000003570', 'ENSDARG00000103846', 'ENSDARG00000076290')
+
+er_stress_gene_name <- c('calr3b', 'pdia6', 'pdia4', 'hsp90b1', 'hspa5', 'calr')
+  
+dna_rep_ensembl <- c('ENSDARG00000002304', 'ENSDARG00000024204', 'ENSDARG00000011404',
+                     'ENSDARG00000040041', 'ENSDARG00000019507', 'ENSDARG00000057683')
+  
+dna_rep_gene_name <- c('gins2', 'mcm3', 'fen1', 'mcm4', 'mcm5', 'mcm6')
+
+# create a df for annotations and gene name mapping
+er_dna_genes <- data.frame(
+  ensembl = c(er_stress_ensembl, dna_rep_ensembl),
+  gene_name = c(er_stress_gene_name, dna_rep_gene_name),
+  category = c(rep("Response to ER Stress", length(er_stress_ensembl)),
+               rep("DNA Replication", length(dna_rep_ensembl)))
+)
+
+# extract rows from deseq results
+hep_lfc <- hepDeseqResults[er_dna_genes$ensembl, "log2FoldChange", drop = FALSE]
+bec_lfc <- becDeseqResults[er_dna_genes$ensembl, "log2FoldChange", drop = FALSE]
+
+# combine and put gene symbols as row names
+log2fc_mat <- cbind(hep_lfc, bec_lfc)
+colnames(log2fc_mat) <- c("EtOH Hep vs E2 Hep", "EtOH BEC vs E2 BEC")
+rownames(log2fc_mat) <- er_dna_genes$gene_name
+
+# create row annotation df 
+row_anno <- data.frame(GO_BP = er_dna_genes$category)
+rownames(row_anno) <- er_dna_genes$gene_name
+
+# create col annotation
+col_anno <- data.frame(Cell_Type = c("Hepatocyte", "BEC"))
+rownames(col_anno) <- colnames(log2fc_mat)
+
+# set annotation colors
+anno_colors <- list(
+  GO_BP = c("Response to ER Stress" = "#66c2a5", "DNA Replication" = "#fc8d62"),
+  Cell_Type = c("Hepatocyte" = "#FF0090", "BEC" = "#97E997")
+)
+
+# plot
+p <- pheatmap(log2fc_mat,
+         cluster_rows = FALSE,
+         cluster_cols = FALSE,
+         annotation_row = row_anno,
+         annotation_col = col_anno,
+         annotation_colors = anno_colors,
+         color = colorRampPalette(c(
+           "#ffba08ff",
+           "#faa307ff",
+           "#f48c06ff",
+           "#e85d04ff",
+           "#dc2f02ff",
+           "#d00000ff",
+           "#9d0208ff",
+           "#6a040fff",
+           "#370617ff",
+           "#03071eff"
+         ))(100),
+         main = "LFC of ER Stress & DNA Replication Genes")
+
+# give a black background
+grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
+grid.draw(p)
+grid.gedit("layout", gp = gpar(col = "white", text = ""))
+
+# ------------------- plotting bile pump genes ------------------------- #
+
+# read in the combined normalized counts
+comb_normalized_counts <- read.csv("/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = 1)
+
+# name the bile bump genes 
+bp_genes_to_plot <- c('abcb11a', 'abcb11b', 'abcb4', 'abcc3', 'abcc4', 'slc10a1')
+
+# ensembl names
+ensembl_bp_genes_to_plot <- c('ENSDARG00000011573','ENSDARG00000070078',
+                             'ENSDARG00000010936','ENSDARG00000096662',
+                             'ENSDARG00000058953', 'ENSDARG00000030588')
+
+# subset the count df
+bp_subset <- comb_normalized_counts[rownames(comb_normalized_counts) %in% ensembl_bp_genes_to_plot, ]
+
+# match order of gene symbols to rows in bp_subset
+matched_gene_symbols <- bp_genes_to_plot[match(rownames(bp_subset), ensembl_bp_genes_to_plot)]
+
+# set gene symbols as rownames
+rownames(bp_subset) <- matched_gene_symbols
+
+# custom color assignment for annotations
+annotation_colors <- list(
+  Cell_Type = c(
+    "Hepatocyte" = "#FF0090",  
+    "BEC" = "#97E997"   
+  )
+)
+
+# create annotation for sample cell type
+sample_annotations <- data.frame(
+  Cell_Type = ifelse(grepl("HEP", colnames(bp_subset)), "Hepatocyte", "BEC")
+)
+rownames(sample_annotations) <- colnames(bp_subset)
+
+scaled_bp_subset <- t(scale(t(bp_subset)))
+
+# plot heatmap
+p <- pheatmap(scaled_bp_subset,
+              annotation_col = sample_annotations,
+              annotation_colors = annotation_colors,
+              cluster_rows = TRUE,
+              cluster_cols = TRUE,
+              show_colnames = TRUE,
+              display_numbers = TRUE,
+              show_rownames = TRUE,
+              fontsize_row = 10,
+              fontsize_col = 8,
+              scale = "row", # scale 
+              color = colorRampPalette(c("#963489", "white", "#E6C67B"))(100),
+              main = "Bile Pump Genes")
+
+# give a black background
+grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
+grid.draw(p)
+grid.gedit("layout", gp = gpar(col = "white", text = ""))
