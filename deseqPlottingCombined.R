@@ -439,16 +439,16 @@ p <- pheatmap(log2fc_mat,
               display_numbers = TRUE,
               annotation_colors = anno_colors,
               color = colorRampPalette(c(
-                "#cc5803ff",  # tawny / burnt orange
-                "#e2711dff",  # cocoa-brown
-                "#fd7e14",    # deep orange
-                "#ff922b",    # bold orange
-                "#ffa94d",    # medium orange
-                "#ffc078",    # pastel orange
-                "#ffd8a8",    # soft orange
-                "#ffe8cc",    # light peach
-                "#fff4e6",    # very pale peach
-                "#ffffff"     # white
+                "#e67300",   # lighter burnt orange
+                "#cc6600",   # burnt orange
+                "#b35900",   # medium burnt orange
+                "#994d00",   # dark orange
+                "#804000",   # deep orange-brown
+                "#663300",   # rich brown
+                "#4d2600",   # burnt sienna
+                "#331a00",   # dark brown
+                "#1a0d00",   # very dark brown
+                "#000000"    # black
               ))
               
               (100),
