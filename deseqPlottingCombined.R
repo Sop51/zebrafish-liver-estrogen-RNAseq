@@ -15,8 +15,8 @@ hep_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq
 bec_raw_counts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/rawCountsBEC.csv', row.names = 1)
 
 # read in the DE results
-hepDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
-becDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
+hepDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
+becDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
 
 # filter for sig results
 hepDeseqResults_sig <- hepDeseqResults %>%
@@ -398,12 +398,14 @@ grid.gedit("layout", gp = gpar(col = "white", text = ""))
 # ------------------- plotting bile pump genes ------------------------- #
 
 # name the bile bump genes 
-bp_genes_to_plot <- c('abcb11a', 'abcb11b', 'abcb4', 'abcc3', 'abcc4', 'slc10a1')
+bp_genes_to_plot <- c('abcc4', 'abcc3', 'abcb11a', 
+                      'abcb11b', 'abcb4', 'slc10a1')
 
 # ensembl names
-ensembl_bp_genes_to_plot <- c('ENSDARG00000011573','ENSDARG00000070078',
-                             'ENSDARG00000010936','ENSDARG00000096662',
-                             'ENSDARG00000058953', 'ENSDARG00000030588')
+ensembl_bp_genes_to_plot <- c('ENSDARG00000058953', 'ENSDARG00000096662', 
+                              'ENSDARG00000011573', 'ENSDARG00000070078', 
+                              'ENSDARG00000010936', 'ENSDARG00000030588'
+)
 
 # create a df for annotations and gene name mapping
 bp_genes <- data.frame(
@@ -431,24 +433,24 @@ anno_colors <- list(
 
 # plot
 p <- pheatmap(log2fc_mat,
-              cluster_rows = TRUE,
-              cluster_cols = FALSE,
+              cluster_rows = FALSE,
+              cluster_col=FALSE,
               annotation_col = col_anno,
               display_numbers = TRUE,
               annotation_colors = anno_colors,
               color = colorRampPalette(c(
-                "#ffffff",   # white
-                "#fff4e6",   # very pale peach
-                "#ffe8cc",   # light peach
-                "#ffd8a8",   # soft orange
-                "#ffc078",   # pastel orange
-                "#ffa94d",   # medium orange
-                "#ff922b",   # bold orange
-                "#fd7e14",   # deep orange
-                "#e2711dff", # cocoa-brown
-                "#cc5803ff"  # tawny / burnt orange
-              )
-              )
+                "#cc5803ff",  # tawny / burnt orange
+                "#e2711dff",  # cocoa-brown
+                "#fd7e14",    # deep orange
+                "#ff922b",    # bold orange
+                "#ffa94d",    # medium orange
+                "#ffc078",    # pastel orange
+                "#ffd8a8",    # soft orange
+                "#ffe8cc",    # light peach
+                "#fff4e6",    # very pale peach
+                "#ffffff"     # white
+              ))
+              
               (100),
               main = "LFC of Bile Pump Genes")
 
