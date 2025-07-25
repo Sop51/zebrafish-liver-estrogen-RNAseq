@@ -397,9 +397,6 @@ grid.gedit("layout", gp = gpar(col = "white", text = ""))
 
 # ------------------- plotting bile pump genes ------------------------- #
 
-# read in the combined normalized counts
-comb_normalized_counts <- read.csv("/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = 1)
-
 # name the bile bump genes 
 bp_genes_to_plot <- c('abcb11a', 'abcb11b', 'abcb4', 'abcc3', 'abcc4', 'slc10a1')
 
@@ -408,45 +405,52 @@ ensembl_bp_genes_to_plot <- c('ENSDARG00000011573','ENSDARG00000070078',
                              'ENSDARG00000010936','ENSDARG00000096662',
                              'ENSDARG00000058953', 'ENSDARG00000030588')
 
-# subset the count df
-bp_subset <- comb_normalized_counts[rownames(comb_normalized_counts) %in% ensembl_bp_genes_to_plot, ]
-
-# match order of gene symbols to rows in bp_subset
-matched_gene_symbols <- bp_genes_to_plot[match(rownames(bp_subset), ensembl_bp_genes_to_plot)]
-
-# set gene symbols as rownames
-rownames(bp_subset) <- matched_gene_symbols
-
-# custom color assignment for annotations
-annotation_colors <- list(
-  Cell_Type = c(
-    "Hepatocyte" = "#FF0090",  
-    "BEC" = "#97E997"   
-  )
+# create a df for annotations and gene name mapping
+bp_genes <- data.frame(
+  ensembl = c(ensembl_bp_genes_to_plot),
+  gene_name = c(bp_genes_to_plot)
 )
 
-# create annotation for sample cell type
-sample_annotations <- data.frame(
-  Cell_Type = ifelse(grepl("HEP", colnames(bp_subset)), "Hepatocyte", "BEC")
+# extract rows from deseq results
+hep_lfc <- hepDeseqResults[bp_genes$ensembl, "log2FoldChange", drop = FALSE]
+bec_lfc <- becDeseqResults[bp_genes$ensembl, "log2FoldChange", drop = FALSE]
+
+# combine and put gene symbols as row names
+log2fc_mat <- cbind(hep_lfc, bec_lfc)
+colnames(log2fc_mat) <- c("EtOH Hep vs E2 Hep", "EtOH BEC vs E2 BEC")
+rownames(log2fc_mat) <- bp_genes$gene_name
+
+# create col annotation
+col_anno <- data.frame(Cell_Type = c("Hepatocyte", "BEC"))
+rownames(col_anno) <- colnames(log2fc_mat)
+
+# set annotation colors
+anno_colors <- list(
+  Cell_Type = c("Hepatocyte" = "#FF0090", "BEC" = "#97E997")
 )
-rownames(sample_annotations) <- colnames(bp_subset)
 
-scaled_bp_subset <- t(scale(t(bp_subset)))
-
-# plot heatmap
-p <- pheatmap(scaled_bp_subset,
-              annotation_col = sample_annotations,
-              annotation_colors = annotation_colors,
+# plot
+p <- pheatmap(log2fc_mat,
               cluster_rows = TRUE,
-              cluster_cols = TRUE,
-              show_colnames = TRUE,
+              cluster_cols = FALSE,
+              annotation_col = col_anno,
               display_numbers = TRUE,
-              show_rownames = TRUE,
-              fontsize_row = 10,
-              fontsize_col = 8,
-              scale = "row", # scale 
-              color = colorRampPalette(c("#963489", "white", "#E6C67B"))(100),
-              main = "Bile Pump Genes")
+              annotation_colors = anno_colors,
+              color = colorRampPalette(c(
+                "#ffffff",   # white
+                "#fff4e6",   # very pale peach
+                "#ffe8cc",   # light peach
+                "#ffd8a8",   # soft orange
+                "#ffc078",   # pastel orange
+                "#ffa94d",   # medium orange
+                "#ff922b",   # bold orange
+                "#fd7e14",   # deep orange
+                "#e2711dff", # cocoa-brown
+                "#cc5803ff"  # tawny / burnt orange
+              )
+              )
+              (100),
+              main = "LFC of Bile Pump Genes")
 
 # give a black background
 grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
