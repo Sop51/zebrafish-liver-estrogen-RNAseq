@@ -377,16 +377,16 @@ p <- pheatmap(log2fc_mat,
          annotation_col = col_anno,
          annotation_colors = anno_colors,
          color = colorRampPalette(c(
-           "#ffba08ff",
-           "#faa307ff",
-           "#f48c06ff",
-           "#e85d04ff",
-           "#dc2f02ff",
-           "#d00000ff",
-           "#9d0208ff",
-           "#6a040fff",
-           "#370617ff",
-           "#03071eff"
+           "#000000",
+           "#1a001a",
+           "#330033",
+           "#4d004d",
+           "#660066",
+           "#800080",
+           "#990099",
+           "#b300b3",
+           "#cc00cc",
+           "#ff00ff"
          ))(100),
          main = "LFC of ER Stress & DNA Replication Genes")
 
