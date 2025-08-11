@@ -439,17 +439,18 @@ p <- pheatmap(log2fc_mat,
               display_numbers = TRUE,
               annotation_colors = anno_colors,
               color = colorRampPalette(c(
-                "#e67300",   # lighter burnt orange
-                "#cc6600",   # burnt orange
-                "#b35900",   # medium burnt orange
-                "#994d00",   # dark orange
-                "#804000",   # deep orange-brown
-                "#663300",   # rich brown
-                "#4d2600",   # burnt sienna
-                "#331a00",   # dark brown
-                "#1a0d00",   # very dark brown
+                "#ff00ff",   # full magenta
+                "#cc00cc",   # neon magenta
+                "#b300b3",   # vivid magenta
+                "#990099",   # bright magenta
+                "#800080",   # classic purple
+                "#660066",   # strong magenta
+                "#4d004d",   # deep magenta
+                "#330033",   # dark purple
+                "#1a001a",   # very dark purple
                 "#000000"    # black
               ))
+              
               
               (100),
               main = "LFC of Bile Pump Genes")
