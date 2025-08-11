@@ -7,7 +7,7 @@ library(clusterProfiler)
 
 # comparing to mice bec
 # read in the counts file
-mice_bec_cts <- read.csv('/Users/sm2949/Desktop/micePregnancyRawCounts.txt', sep='\t')
+mice_bec_cts <- read.csv('/Users/sophiemarcotte/Desktop/fragmentCountsGencode.txt', sep='\t')
 
 # remove the dot and number at the end of geneid
 mice_bec_cts$Geneid <- gsub("\\.\\d+$", "", mice_bec_cts$Geneid)
@@ -16,7 +16,6 @@ mice_bec_cts$Geneid <- gsub("\\.\\d+$", "", mice_bec_cts$Geneid)
 mice_bec_cts <- mice_bec_cts[, c(1, 7:12)]
 
 # set geneid to row names
-mice_bec_cts <- na.omit(mice_bec_cts)
 rownames(mice_bec_cts) <- mice_bec_cts$Geneid
 mice_bec_cts <- mice_bec_cts[ , -1]
 
@@ -66,25 +65,33 @@ zebrafish = useMart("ensembl", dataset = "drerio_gene_ensembl")
 
 orthologs <- getBM(
   attributes = c(
+    "ensembl_gene_id",
     "external_gene_name",          # mouse gene symbol
-    "drerio_homolog_associated_gene_name" # zebrafish ortholog gene symbol
+    "drerio_homolog_ensembl_gene" # zebrafish ortholog gene symbol
   ),
-  filters = "external_gene_name",
+  filters = "ensembl_gene_id",
   values = rownames(sig_bec_mice),
   mart = mouse
 )
 
 # clean 
-orthologs <- orthologs %>% filter(!is.na(drerio_homolog_associated_gene_name) & drerio_homolog_associated_gene_name != "")
-sig_bec_mice$external_gene_name <- rownames(sig_bec_mice)
-orthologs <- left_join(orthologs, sig_bec_mice, by = 'external_gene_name')
+orthologs <- orthologs %>% filter(!is.na(drerio_homolog_ensembl_gene) & drerio_homolog_ensembl_gene != "")
+sig_bec_mice$ensembl_gene_id <- rownames(sig_bec_mice)
+orthologs <- inner_join(orthologs, sig_bec_mice, by = 'ensembl_gene_id')
 
 # merge with previous BEC results
-becDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
-becDeseqResults$Gene.name <- tolower(becDeseqResults$Gene.name)
+becDeseqResults <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/deseqResultsBEC.csv', row.names=1)
+becDeseqResults$ensembl_gene_id <- rownames(becDeseqResults)
 
 # pull out rows that are present in other de
-shared_becDeseq <- inner_join(orthologs, becDeseqResults, by = c('drerio_homolog_associated_gene_name' = 'Gene.name'))
+shared_becDeseq <- inner_join(orthologs, becDeseqResults, 
+                              by = c('drerio_homolog_ensembl_gene' = 'ensembl_gene_id'),
+                              suffix = c("_mice", "_zebrafish")) %>%
+  dplyr::select(-2) %>%  # remove the second column
+  rename(zebrafish.gene.name = Gene.name) %>%
+  filter(padj_zebrafish < 0.05)
+
+write.csv(shared_becDeseq, "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/shared_DE_bec_pregMice_and_E2zebrafish.csv", row.names = FALSE)
 
 # ----------------------------- kegg and go ----------------------------- #
 # pull out upregulated gene ids
@@ -94,7 +101,7 @@ gene_bec_names <- rownames(sig_bec_mice)
 entrez_ids_bec <- mapIds(org.Mm.eg.db,
                             keys = gene_bec_names,
                             column = "ENTREZID",
-                            keytype = "SYMBOL",
+                            keytype = "ENSEMBL",
                             multiVals = "first")
 
 # run go
@@ -105,8 +112,10 @@ go_results_bec <- enrichGO(gene = entrez_ids_bec,
                               pAdjustMethod = "BH",
                               qvalueCutoff = 0.05,
                               readable = TRUE)
+
+
 # plot
-dotplot(go_results_bec, showCategory = 15) + ggtitle("E2 Upregulated GO Biological Process")
+dotplot(go_results_bec, showCategory = 15) + ggtitle("Mice Pregnancy GO for Sig DE Genes")
 
 # KEGG enrichment
 kegg_bec <- enrichKEGG(gene = entrez_ids_bec,
@@ -115,7 +124,11 @@ kegg_bec <- enrichKEGG(gene = entrez_ids_bec,
                           qvalueCutoff = 0.05)
 
 # plot
-dotplot(kegg_bec, showCategory = 15) + ggtitle("E2 Upregulated KEGG")
+dotplot(kegg_bec, showCategory = 15) + ggtitle("Mice Pregnancy KEGG for Sig DE Genes")
 
+# order results
+kegg_results <- kegg_bec@result[order(kegg_bec@result$p.adjust), ]
+go_results <- go_results_bec@result[order(go_results_bec@result$p.adjust), ]
 
-
+write.csv(kegg_results, "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/kegg_pregMiceBEC.csv", row.names = TRUE)
+write.csv(go_results, "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/go_pregMiceBEC.csv", row.names = TRUE)
