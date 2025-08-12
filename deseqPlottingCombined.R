@@ -398,13 +398,61 @@ grid.gedit("layout", gp = gpar(col = "white", text = ""))
 # ------------------- plotting bile pump genes ------------------------- #
 
 # name the bile bump genes 
-bp_genes_to_plot <- c('abcc4', 'abcc3', 'abcb11a', 
-                      'abcb11b', 'abcb4', 'slc10a1')
+bp_genes_to_plot <- c('abcc3', 'abcb11a', 
+                      'abcb11b', 'abcb4', 'slc10a1',
+                      'ugt1a1', 'ugt1ab', 'ugt1b1',
+                      'ugt1b2', 'ugt1b3', 'ugt1b4',
+                      'ugt1b5', 'ugt1b6p', 'ugt1b7',
+                      'ugt2a1', 'ugt2a4', 'ugt2a5',
+                      'ugt2a6', 'ugt2b1', 'ugt2b3',
+                      'ugt5a1', 'ugt5a2', 'ugt5a4',
+                      'ugt5a5', 'ugt5b1', 'ugt5b2',
+                      'ugt5b3', 'ugt5b4', 'ugt5c1',
+                      'ugt5c2', 'ugt5c3', 'ugt5d1',
+                      'ugt5e1', 'ugt5f1', 'ugt5g1',
+                      'ugt5g2', 'ugt8', 'ugt2a7',
+                      'ugt5b5', 'ugdh', 'abcc2',
+                      'abcc4', 'gusb', 'oat',
+                      'slc22a2', 'slc22a3', 'slc22a4',
+                      'slc22a5', 'slc22a6l', 'slc22a7a',
+                      'slc22a7b.1', 'slc22a13a', 'slc22a13b',
+                      'slc22a15', 'slc22a16', 'slc22a21',
+                      'slc22a7b.2', 'slc22a7b.3', 'slc22a7b.4',
+                      'slc22a23', 'slc22a31', 'oatx')
 
 # ensembl names
-ensembl_bp_genes_to_plot <- c('ENSDARG00000058953', 'ENSDARG00000096662', 
+ensembl_bp_genes_to_plot <- c('ENSDARG00000096662', 
                               'ENSDARG00000011573', 'ENSDARG00000070078', 
-                              'ENSDARG00000010936', 'ENSDARG00000030588'
+                              'ENSDARG00000010936', 'ENSDARG00000030588',
+                              'ENSDARG00000006220', 'ENSDARG00000006220',
+                              'ENSDARG00000097491', 'ENSDARG00000097231',
+                              'ENSDARG00000097979', 'ENSDARG00000097024',
+                              'ENSDARG00000089507', 'ENSDARG00000103761',
+                              'ENSDARG00000101176', 'ENSDARG00000051940',
+                              'ENSDARG00000051940', 'ENSDARG00000011537',
+                              'ENSDARG00000039501', 'ENSDARG00000093043',
+                              'ENSDARG00000109611', 'ENSDARG00000016479',
+                              'ENSDARG00000093640', 'ENSDARG00000097397',
+                              'ENSDARG00000051805', 'ENSDARG00000104995',
+                              'ENSDARG00000101495', 'ENSDARG00000099276',
+                              'ENSDARG00000091916', 'ENSDARG00000061444',
+                              'ENSDARG00000006372', 'ENSDARG00000061439',
+                              'ENSDARG00000002394', 'ENSDARG00000058048',
+                              'ENSDARG00000054835', 'ENSDARG00000032862',
+                              'ENSDARG00000043901', 'ENSDARG00000037455',
+                              'ENSDARG00000091624', 'ENSDARG00000104203',
+                              'ENSDARG00000019838', 'ENSDARG00000014031',
+                              'ENSDARG00000058953', 'ENSDARG00000063126',
+                              'ENSDARG00000078425', 'ENSDARG00000030530',
+                              'ENSDARG00000058775', 'ENSDARG00000005335',
+                              'ENSDARG00000101021', 'ENSDARG00000055523',
+                              'ENSDARG00000056028', 'ENSDARG00000056643',
+                              'ENSDARG00000056551', 'ENSDARG00000059166',
+                              'ENSDARG00000055445', 'ENSDARG00000015869',
+                              'ENSDARG00000094112', 'ENSDARG00000091252',
+                              'ENSDARG00000062182', 'ENSDARG00000056652',
+                              'ENSDARG00000078856', 'ENSDARG00000078882',
+                              'ENSDARG00000019713'
 )
 
 # create a df for annotations and gene name mapping
@@ -432,25 +480,26 @@ anno_colors <- list(
 )
 
 # plot
+log2fc_mat <- log2fc_mat[!apply(is.na(log2fc_mat), 1, all), ]
 p <- pheatmap(log2fc_mat,
               cluster_rows = FALSE,
               cluster_col=FALSE,
               annotation_col = col_anno,
               display_numbers = TRUE,
+              number_color = "white",
               annotation_colors = anno_colors,
               color = colorRampPalette(c(
-                "#ff00ff",   # full magenta
-                "#cc00cc",   # neon magenta
-                "#b300b3",   # vivid magenta
-                "#990099",   # bright magenta
-                "#800080",   # classic purple
-                "#660066",   # strong magenta
-                "#4d004d",   # deep magenta
-                "#330033",   # dark purple
-                "#1a001a",   # very dark purple
+                "#e67300",   # lighter burnt orange
+                "#cc6600",   # burnt orange
+                "#b35900",   # medium burnt orange
+                "#994d00",   # dark orange
+                "#804000",   # deep orange-brown
+                "#663300",   # rich brown
+                "#4d2600",   # burnt sienna
+                "#331a00",   # dark brown
+                "#1a0d00",   # very dark brown
                 "#000000"    # black
               ))
-              
               
               (100),
               main = "LFC of Bile Pump Genes")

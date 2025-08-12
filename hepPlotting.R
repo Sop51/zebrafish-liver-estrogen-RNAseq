@@ -3,11 +3,12 @@ library(clusterProfiler)
 library(org.Dr.eg.db)
 library(ggplot2)
 library(tidyr)
+library(ggrepel)
 library(reshape2)
 
 # ------------------ set up data for analyses --------------------- #
 # read in the normalized counts & deseq results
-hepNormalizedCounts <- read.csv('/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names=1)
+hepNormalizedCounts <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsHEP.csv', row.names=1)
 hepDeseqResults <- read.csv('/Users/sm2949/Desktop/patrice/estrogenRNAseq/deseqResultsHEP.csv', row.names=1)
 
 # if no gene symbol, replace with ensembl
@@ -345,7 +346,7 @@ ensembl_er_genes_to_plot <- c('ENSDARG00000013670', 'ENSDARG00000015228',
                               'ENSDARG00000018491', 'ENSDARG00000003570', 
                               'ENSDARG00000103846', 'ENSDARG00000076290')
 
-# subset the coutn df
+# subset the count df
 er_subset <- hepNormalizedCounts[rownames(hepNormalizedCounts) %in% ensembl_er_genes_to_plot, ]
 
 # set Gene.name as rownames
@@ -365,3 +366,75 @@ pheatmap(scaled_er_subset,
          color = colorRampPalette(c("#523095", "white", "#EB712A"))(100),
          main = "KEGG Protein Processing in Endoplasmic Reticulum Genes")
 
+# ---------------------- create a plot of normalized counts in a scatter plot ----------------- #
+# only subset to controls
+hep_norm_counts_etoh <- hepNormalizedCounts[, grep("EtOH", colnames(hepNormalizedCounts))]
+
+# calculate avg across samples
+gene_mean_exp_hep <- data.frame(
+  gene = rownames(hep_norm_counts_etoh),
+  x = rowMeans(hep_norm_counts_etoh, na.rm = TRUE),
+  y = rowMeans(hep_norm_counts_etoh, na.rm = TRUE)
+)
+
+# merge with gene symbol information, biomart
+mart <- useEnsembl(biomart = "genes", dataset = "drerio_gene_ensembl")
+mapping <- getBM(
+  attributes = c("ensembl_gene_id", "external_gene_name"),
+  filters = "ensembl_gene_id",
+  values = gene_mean_exp_hep$gene,
+  mart = mart
+)
+
+# merge
+gene_mean_exp_hep <- gene_mean_exp_hep %>%
+  left_join(mapping, by = c("gene" = "ensembl_gene_id")) %>% 
+  mutate(external_gene_name = tolower(external_gene_name))
+
+# edit er gene names
+gene_mean_exp_hep[gene_mean_exp_hep$gene == "ENSDARG00000034181", "external_gene_name"] <- "esr2b"
+gene_mean_exp_hep[gene_mean_exp_hep$gene == "ENSDARG00000016454", "external_gene_name"] <- "esr2a"
+
+# create labels for genes
+genes_to_label <- c("apoa2", "fabp10a", "esr1", "esr2a", "esr2b")
+gene_mean_exp_hep$label <- ifelse(
+  gene_mean_exp_hep$external_gene_name %in% genes_to_label,
+  gene_mean_exp_hep$external_gene_name,
+  NA
+)
+
+# column to indicate if labeled or not
+gene_mean_exp_hep <- gene_mean_exp_hep %>%
+  mutate(is_labeled = !is.na(label))
+
+#plot
+ggplot(gene_mean_exp_hep, aes(x = x, y = y)) +
+  geom_point(
+    data = subset(gene_mean_exp_hep, !is_labeled),
+    shape = 21,
+    color = "#DADADA",   # outline color
+    fill = NA,          # no fill
+    size = 2
+  ) +
+  geom_point(
+    data = subset(gene_mean_exp_hep, is_labeled),
+    shape = 21,
+    color = "red",   # outline color
+    fill = "red",       # filled red
+    size = 3
+  ) +
+  geom_text_repel(
+    aes(label = label),
+    size = 3.5,
+    max.overlaps = 20,
+    arrow = arrow(length = unit(0.02, "npc")),
+    box.padding = 0.4,
+    point.padding = 0.5,
+    segment.color = 'black'
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Gene Expression Across EtOH Samples in Hepatocytes",
+    x = "Avg VST Normalized Expression",
+    y = "Avg VST Normalized Expression"
+  )

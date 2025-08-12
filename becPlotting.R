@@ -363,3 +363,74 @@ ggplot(long_data, aes(x = gene_name, y = expression)) +
   ) +
   scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
 
+# ---------------------- create a plot of normalized counts in a scatter plot ----------------- #
+# only subset to controls
+bec_norm_counts_etoh <- becNormalizedCounts[, grep("EtOH", colnames(becNormalizedCounts))]
+
+# calculate avg across samples
+gene_mean_exp_bec <- data.frame(
+  gene = rownames(bec_norm_counts_etoh),
+  x = rowMeans(bec_norm_counts_etoh, na.rm = TRUE),
+  y = rowMeans(bec_norm_counts_etoh, na.rm = TRUE)
+)
+
+# merge with gene symbol information, biomart
+mart <- useEnsembl(biomart = "genes", dataset = "drerio_gene_ensembl")
+mapping <- getBM(
+  attributes = c("ensembl_gene_id", "external_gene_name"),
+  filters = "ensembl_gene_id",
+  values = gene_mean_exp_bec$gene,
+  mart = mart
+)
+
+# merge
+gene_mean_exp_bec <- gene_mean_exp_bec %>%
+  left_join(mapping, by = c("gene" = "ensembl_gene_id")) %>% 
+  mutate(external_gene_name = tolower(external_gene_name))
+
+# edit er gene names
+gene_mean_exp_bec[gene_mean_exp_bec$gene == "ENSDARG00000034181", "external_gene_name"] <- "esr2b"
+
+# create labels for genes
+genes_to_label <- c("anxa4", "tm4sf4", "fabp10a", "apoa2", "esr2b", "esr1")
+gene_mean_exp_bec$label <- ifelse(
+  gene_mean_exp_bec$external_gene_name %in% genes_to_label,
+  gene_mean_exp_bec$external_gene_name,
+  NA
+)
+
+# column to indicate if labeled or not
+gene_mean_exp_bec <- gene_mean_exp_bec %>%
+  mutate(is_labeled = !is.na(label))
+
+#plot
+ggplot(gene_mean_exp_bec, aes(x = x, y = y)) +
+  geom_point(
+    data = subset(gene_mean_exp_bec, !is_labeled),
+    shape = 21,
+    color = "#DADADA",   # outline color
+    fill = NA,          # no fill
+    size = 2
+  ) +
+  geom_point(
+    data = subset(gene_mean_exp_bec, is_labeled),
+    shape = 21,
+    color = "red",   # outline color
+    fill = "red",       # filled red
+    size = 3
+  ) +
+  geom_text_repel(
+    aes(label = label),
+    size = 3.5,
+    max.overlaps = 20,
+    arrow = arrow(length = unit(0.02, "npc")),
+    box.padding = 0.4,
+    point.padding = 0.5,
+    segment.color = 'black'
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Gene Expression Across EtOH Samples in BECs",
+    x = "Avg VST Normalized Expression",
+    y = "Avg VST Normalized Expression"
+  )
