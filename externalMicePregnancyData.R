@@ -134,7 +134,8 @@ write.csv(kegg_results, "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/ke
 write.csv(go_results, "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/go_pregMiceBEC.csv", row.names = TRUE)
 
 # ------------------ create a plot showing the correlation between the two DE gene sets -----------------------#
-shared_becDeseq <- read.csv("/Users/sm2949/Desktop/shared_DE_bec_pregMice_and_E2zebrafish.csv")
+shared_becDeseq <- read.csv("/Users/sm2949/Desktop/shared_DE_bec_pregMice_and_E2zebrafish.csv") %>% 
+  mutate(zebrafish.gene.name = tolower(zebrafish.gene.name))
 
 # create a lm between the two lfc 
 model <- lm(log2FoldChange_mice ~ log2FoldChange_zebrafish, data = shared_becDeseq)
@@ -143,19 +144,24 @@ r2 <- summary(model)$r.squared
 # plot
 ggplot(shared_becDeseq, aes(x = log2FoldChange_mice, y = log2FoldChange_zebrafish)) +
   geom_point(alpha = 0.6) +
+  geom_point(
+    data = subset(shared_becDeseq, zebrafish.gene.name == "sox17"),
+    color = "red",
+    size = 2
+  ) +
   geom_vline(xintercept = 0, linetype = "dashed", color = "gray40") +  # vertical line
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +  # horizontal line
   geom_smooth(method = "lm", se = FALSE, color = "red") +
   geom_text_repel(
-    data = subset(shared_becDeseq, gene == "sox17"),
-    aes(label = gene),
+    data = subset(shared_becDeseq, zebrafish.gene.name == "sox17"),
+    aes(label = zebrafish.gene.name),
     color = "red",
     size = 4
   ) +
   labs(
     x = "log2FoldChange (Mice)",
     y = "log2FoldChange (Zebrafish)",
-    title = "Correlation of log2 Fold Changes"
+    title = "log2FC of Shared DE Genes: E2-Treated Zebrafish BECs and Pregnant Mice BECs"
   ) +
   annotate("text", x = Inf, y = -Inf, 
            label = paste0("R² = ", round(r2, 3)), 
