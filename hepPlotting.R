@@ -396,7 +396,7 @@ gene_mean_exp_hep[gene_mean_exp_hep$gene == "ENSDARG00000034181", "external_gene
 gene_mean_exp_hep[gene_mean_exp_hep$gene == "ENSDARG00000016454", "external_gene_name"] <- "esr2a"
 
 # create labels for genes
-genes_to_label <- c("apoa2", "fabp10a", "esr1", "esr2a", "esr2b")
+genes_to_label <- c("apoa2", "serpina1l", "krt8", "anxa4","esr1", "esr2a", "esr2b", "gper1")
 gene_mean_exp_hep$label <- ifelse(
   gene_mean_exp_hep$external_gene_name %in% genes_to_label,
   gene_mean_exp_hep$external_gene_name,
@@ -407,23 +407,33 @@ gene_mean_exp_hep$label <- ifelse(
 gene_mean_exp_hep <- gene_mean_exp_hep %>%
   mutate(is_labeled = !is.na(label))
 
-#plot
+# create a color column based on gene name
+gene_mean_exp_hep$gene_color <- case_when(
+  gene_mean_exp_hep$external_gene_name %in% c("anxa4", "krt8") ~ "#43CCB8",
+  gene_mean_exp_hep$external_gene_name %in% c("serpina1l", "apoa2") ~ "magenta",
+  gene_mean_exp_hep$external_gene_name %in% c("esr2b", "esr2a", "esr1", "gper1") ~ "black",
+  TRUE ~ NA_character_
+)
+
+# plot
 ggplot(gene_mean_exp_hep, aes(x = x, y = y)) +
   geom_point(
     data = subset(gene_mean_exp_hep, !is_labeled),
     shape = 21,
-    color = "#DADADA",   # outline color
-    fill = NA,          # no fill
+    color = "#DADADA",
+    fill = NA,
     size = 2
   ) +
   geom_point(
     data = subset(gene_mean_exp_hep, is_labeled),
+    aes(fill = gene_color),
     shape = 21,
-    color = "red",   # outline color
-    fill = "red",       # filled red
-    size = 3
+    color = "black",  # outline
+    size = 3,
+    show.legend = FALSE
   ) +
   geom_text_repel(
+    data = subset(gene_mean_exp_hep, is_labeled),
     aes(label = label),
     size = 3.5,
     max.overlaps = 20,
@@ -432,6 +442,7 @@ ggplot(gene_mean_exp_hep, aes(x = x, y = y)) +
     point.padding = 0.5,
     segment.color = 'black'
   ) +
+  scale_fill_identity() +
   theme_minimal() +
   labs(
     title = "Gene Expression Across EtOH Samples in Hepatocytes",
