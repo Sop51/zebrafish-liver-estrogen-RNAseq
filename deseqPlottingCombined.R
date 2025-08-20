@@ -508,3 +508,92 @@ p <- pheatmap(log2fc_mat,
 grid.draw(rectGrob(gp=gpar(fill="black", lwd=0)))
 grid.draw(p)
 grid.gedit("layout", gp = gpar(col = "white", text = ""))
+
+# --------------- create plots for lipid processing and glycosylation ------#
+# list of lipid processing
+lipid_processing <- c(
+  "mttp", "dgat2", "apobb.1", "apoc1", "apoa1b",
+  "apoeb", "vldlr", "ldlra", "ldlrb", "lpla",
+  "lplb", "aup1", "ldlrap1a", "ldlrap1b", "ldlrad2",
+  "ldlrad3", "ldlrad4a", "ldlrad4b", "lrp1-lrp12"
+)
+
+# set gene names to lowercase
+becDeseqResults$Gene.name <- tolower(becDeseqResults$Gene.name)
+hepDeseqResults$Gene.name <- tolower(hepDeseqResults$Gene.name)
+
+# pull out the genes
+bec_lipid_processing <- becDeseqResults[becDeseqResults$Gene.name %in% lipid_processing,] 
+hep_lipid_procesing <- hepDeseqResults[hepDeseqResults$Gene.name %in% lipid_processing,] 
+
+# merge into one dataframe
+combined <- full_join(bec_lipid_processing, hep_lipid_procesing, by = "Gene.name", suffix=c(".bec", ".hep"))
+
+# create matrix for heatmap
+heatmap_mtx <- data.frame(
+  "EtOH BEC vs E2 BEC" = combined$log2FoldChange.bec,
+  "EtOH Hep vs E2 Hep" = combined$log2FoldChange.hep
+)
+rownames(heatmap_mtx) <- combined$Gene.name
+
+# create the annotation column
+col_anno <- data.frame(
+  celltype = c("BEC", "HEP")
+)
+rownames(col_anno) <- colnames(heatmap_mtx)
+
+# plot
+pheatmap(
+  heatmap_mtx,
+  annotation_col = col_anno,
+  display_numbers = TRUE,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  number_color = "black",
+  border_color = "black",
+  main = "LFC of Lipid Processing Genes"
+) 
+
+# list of glycosylation
+glycosylation <- c(
+  "mif", "alg13", "alg14", "gmds", "crppa",
+  "fkrp", "fut8a", "gmppb", "b4galt2", "b4galt3",
+  "b4galt4", "b4galt5", "b4galt6", "b4galt7", "nansa",
+  "nansb", "st3gal3a", "st3gal3b", "st3gal7"
+)
+
+# edit gene names 
+becDeseqResults["ENSDARG00000010301", "Gene.name"] <- "b4galt6"
+hepDeseqResults["ENSDARG00000010301", "Gene.name"] <- "b4galt6"
+
+# pull out the genes
+bec_glycosylation <- becDeseqResults[becDeseqResults$Gene.name %in% glycosylation,] 
+hep_glycosylation <- hepDeseqResults[hepDeseqResults$Gene.name %in% glycosylation,] 
+
+# merge into one dataframe
+combined_glycosylation <- full_join(bec_glycosylation, hep_glycosylation, by = "Gene.name", suffix=c(".bec", ".hep"))
+
+# create matrix for heatmap
+heatmap_mtx_glycosylation <- data.frame(
+  "EtOH BEC vs E2 BEC" = combined_glycosylation$log2FoldChange.bec,
+  "EtOH Hep vs E2 Hep" = combined_glycosylation$log2FoldChange.hep
+)
+rownames(heatmap_mtx_glycosylation) <- combined_glycosylation$Gene.name
+
+# create the annotation column
+col_anno_glycosylation <- data.frame(
+  celltype = c("BEC", "HEP")
+)
+rownames(col_anno_glycosylation) <- colnames(heatmap_mtx_glycosylation)
+
+# plot
+pheatmap(
+  heatmap_mtx_glycosylation,
+  annotation_col = col_anno_glycosylation,
+  display_numbers = TRUE,
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  number_color = "black",
+  border_color = "black",
+  main = "LFC of Glycosylation Genes"
+) 
