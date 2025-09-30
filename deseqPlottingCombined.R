@@ -209,7 +209,7 @@ write.csv(vst, file = "/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstC
 # ------------------- plotting estrogen receptor genes ------------------------- #
 
 # read in the combined normalized counts
-comb_normalized_counts <- read.csv("/Users/sophiemarcotte/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = 1)
+comb_normalized_counts <- read.csv("/Users/sm2949/Desktop/patrice/estrogenRNAseq/vstCountsCOMBINED.csv", row.names = 1)
 
 # name the receptor
 r_genes_to_plot <- c('gper1', 'esr1', 'esr2a', 'esr2b')
@@ -241,7 +241,13 @@ sample_annotations <- data.frame(
 )
 rownames(sample_annotations) <- colnames(r_subset)
 
-scaled_r_subset <- t(scale(t(r_subset)))
+# function to rescale between -1 and 1
+rescale_between <- function(x, new_min = -1, new_max = 1) {
+  ( (x - min(x)) / (max(x) - min(x)) ) * (new_max - new_min) + new_min
+}
+
+# apply per row (gene)
+scaled_r_subset <- t(apply(r_subset, 1, rescale_between, new_min = -1, new_max = 1))
 
 # plot heatmap
 p <- pheatmap(scaled_r_subset,
@@ -254,7 +260,6 @@ p <- pheatmap(scaled_r_subset,
          show_rownames = TRUE,
          fontsize_row = 10,
          fontsize_col = 8,
-         scale = "row", # scale 
          color = colorRampPalette(c("#963489", "white", "#E6C67B"))(100),
          main = "Estrogen Receptor Genes")
 
@@ -597,3 +602,57 @@ pheatmap(
   border_color = "black",
   main = "LFC of Glycosylation Genes"
 ) 
+
+# ----------- illustrating dna replication for both cell types ------ #
+# get the top ten results from each cell type
+top_hep <- head(kegg_hep_up@result, 10)
+top_bec <- head(kegg_bec_up@result, 10)
+
+# combine, keeping cell type names
+top_hep$cell_type <- "Hepatocytes"
+top_bec$cell_type <- "BECs"
+combined_df <- rbind(top_hep, top_bec)
+
+# descriptions to highlight
+highlight_hep <- c("Cell cycle", "DNA replication")
+highlight_bec <- c("Homologous recombination", "Cell cycle", "DNA replication")
+
+# combine together for two categories
+combined_df$highlight <- with(combined_df, ifelse(
+  (cell_type == "Hepatocytes" & Description %in% highlight_hep) |
+    (cell_type == "BECs" & Description %in% highlight_bec),
+  "Cell Division Related",
+  "Other"
+))
+
+# ensure factor for plotting
+combined_df$highlight <- factor(combined_df$highlight, levels = c("Cell Division Related", "Other"))
+
+# plot
+ggplot(combined_df, aes(x = reorder(Description, Count), y = Count, fill = highlight)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~cell_type, scales = "free") +
+  scale_fill_manual(values = c("Cell Division Related" = "tomato", "Other" = "grey70")) +
+  coord_flip() +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.background = element_rect(fill = "black"),
+    plot.background = element_rect(fill = "black"),
+    plot.title = element_text(color = "white", size = 16, face = "bold", hjust = 0.5),
+    strip.background = element_rect(fill = "gray20"),
+    strip.text = element_text(color = "white", face = "bold"),
+    axis.text = element_text(color = "white"),
+    axis.title = element_text(color = "white"),
+    legend.background = element_rect(fill = "black"),
+    legend.key = element_rect(fill = "black"),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white"),
+    panel.grid.major = element_line(color = "gray30"),
+    panel.grid.minor = element_blank()
+  ) +
+  labs(
+    title = "Top Ten Significantly Enriched KEGG Pathways by Cell Type",
+    x = "Pathway",
+    y = "Gene Count",
+    fill = "Pathway Group"
+  )
