@@ -656,3 +656,42 @@ ggplot(combined_df, aes(x = reorder(Description, Count), y = Count, fill = highl
     y = "Gene Count",
     fill = "Pathway Group"
   )
+
+# plot white background
+p <- ggplot(combined_df, aes(x = reorder(Description, Count), y = Count, fill = highlight)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~cell_type, scales = "free") +
+  scale_fill_manual(values = c("Cell Division Related" = "#5C0282", "Other" = "grey70")) +
+  coord_flip() +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    plot.title = element_text(color = "black", size = 16, face = "bold", hjust = 0.5),
+    strip.background = element_rect(fill = "gray90"),
+    strip.text = element_text(color = "black", face = "bold"),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    legend.background = element_rect(fill = "white", color = NA),
+    legend.key = element_rect(fill = "white", color = NA),
+    legend.text = element_text(color = "black"),
+    legend.title = element_text(color = "black"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank()
+  ) +
+  labs(
+    title = "Top Ten Significantly Enriched KEGG Pathways by Cell Type",
+    x = "Pathway",
+    y = "Gene Count",
+    fill = "Pathway Group"
+  )
+
+# save the plot as PNG
+ggsave(
+  filename = "/Users/sophiemarcotte/Desktop/replication_celltype_barplot.png",
+  plot = p,
+  width = 14,
+  height = 6,
+  dpi = 300,
+  bg = "white"
+)
